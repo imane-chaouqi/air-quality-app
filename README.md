@@ -1,10 +1,10 @@
-# airsense
+# air-quality-app
 
-A new Flutter project.
+Application mobile Android pour la maquette de qualité de l'air (ESP32).
 
 ## Getting Started
 
-This project is a starting point for a Flutter application.
+This project is a Flutter application for monitoring air quality.
 
 A few resources to get you started if this is your first Flutter project:
 
