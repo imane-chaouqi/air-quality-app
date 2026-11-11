@@ -4,9 +4,13 @@ import 'package:flutter/material.dart';
 
 import '../models/sensor_model.dart';
 import '../services/iot_service.dart';
+import '../theme/app_colors.dart';
+import '../widgets/app_scaffold.dart';
 import '../widgets/connection_indicator.dart';
 import '../widgets/countdown_progress.dart';
 import '../widgets/custom_button.dart';
+import '../widgets/fade_slide_in.dart';
+import '../widgets/glass_card.dart';
 import '../widgets/sensor_status_tile.dart';
 import '../widgets/simulation_banner.dart';
 import 'result_screen.dart';
@@ -80,7 +84,8 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
     _status = _service.status;
     _statusSub = _service.statusStream.listen(_onStatus);
     _readingSub = _service.readingStream.listen((r) {
-      _latest = r;
+      if (!mounted) return;
+      setState(() => _latest = r); // rafraîchit l'affichage des valeurs
       _tryFinish();
     });
 
@@ -171,58 +176,127 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
     return _countdownDone ? SensorState.ready : SensorState.stabilizing;
   }
 
+  String get _systemText {
+    if (_status == ConnectionStatus.error) return 'Système : erreur de liaison';
+    if (_status == ConnectionStatus.connecting) return 'Connexion au dispositif en cours…';
+    if (_status == ConnectionStatus.connected) {
+      return _countdownDone ? 'Système prêt' : 'Système actif · stabilisation en cours';
+    }
+    return 'Système en attente';
+  }
+
+  String _v(double? v, int digits) => v == null ? '—' : v.toStringAsFixed(digits);
+
   @override
   Widget build(BuildContext context) {
+    final p = AppPalette.of(context);
     final failed = _status == ConnectionStatus.error;
-    return Scaffold(
-      appBar: AppBar(title: const Text('Espace capteurs')),
-      body: SafeArea(
-        child: ListView(padding: const EdgeInsets.all(16), children: [
-          if (widget.simulation) ...[const SimulationBanner(), const SizedBox(height: 12)],
-          Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-            const Text('Liaison avec l’ESP32', style: TextStyle(fontWeight: FontWeight.bold)),
-            ConnectionIndicator(status: _status),
-          ]),
-          const SizedBox(height: 16),
-          SensorStatusTile(info: SensorInfo.pms5003, state: _sensorState),
-          SensorStatusTile(info: SensorInfo.dht22, state: _sensorState),
-          const Text('État de fonctionnement estimé par l’application.',
-              style: TextStyle(fontSize: 12)),
-          const SizedBox(height: 20),
-          if (failed)
-            Card(
-              color: Colors.red.withAlpha(25),
-              child: Padding(
-                padding: const EdgeInsets.all(14),
-                child: Column(children: [
-                  const Icon(Icons.error_outline, color: Colors.red, size: 36),
-                  const SizedBox(height: 8),
-                  Text(_error ?? 'Erreur de connexion.', textAlign: TextAlign.center),
-                  const SizedBox(height: 12),
-                  CustomButton(label: 'Réessayer', icon: Icons.refresh, onPressed: _retry),
-                ]),
-              ),
-            )
-          else ...[
-            const Text('Stabilisation des capteurs',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 4),
-            Text(_status == ConnectionStatus.connected
-                ? 'Merci de patienter, les mesures seront affichées automatiquement.'
-                : 'Connexion au dispositif en cours…'),
-            const SizedBox(height: 16),
-            Center(
-              child: CountdownProgress(
-                  remaining: _remaining, total: _total, active: _countdownRunning || _countdownDone),
+    final r = _latest;
+    final provisional = _sensorState == SensorState.stabilizing && r != null;
+
+    final items = <Widget>[
+      if (widget.simulation) const SimulationBanner(),
+      GlassCard(
+        strength: GlassStrength.strong,
+        padding: const EdgeInsets.all(12),
+        radius: 18,
+        child: Row(children: [
+          Container(
+            width: 36,
+            height: 36,
+            decoration: BoxDecoration(
+              color: AppColors.champagne.withAlpha(p.dark ? 50 : 55),
+              borderRadius: BorderRadius.circular(11),
             ),
-            if (_countdownDone && _latest == null)
-              const Padding(
-                padding: EdgeInsets.only(top: 16),
-                child: Text('Stabilisation terminée, en attente de la première mesure…',
-                    textAlign: TextAlign.center),
-              ),
-          ],
+            child: Icon(Icons.memory, size: 20, color: p.champagneText),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              const Text('Liaison avec l’ESP32',
+                  style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
+              Text(_systemText,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(fontSize: 12, color: p.muted)),
+            ]),
+          ),
+          const SizedBox(width: 8),
+          ConnectionIndicator(status: _status),
         ]),
+      ),
+      if (failed)
+        GlassCard(
+          tint: AppColors.veryPoor,
+          padding: const EdgeInsets.all(14),
+          child: Column(children: [
+            Row(children: [
+              const Icon(Icons.error_outline, color: AppColors.veryPoor, size: 26),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(_error ?? 'Erreur de connexion.', style: const TextStyle(fontSize: 13.5)),
+              ),
+            ]),
+            const SizedBox(height: 12),
+            CustomButton(label: 'Réessayer', icon: Icons.refresh, onPressed: _retry),
+          ]),
+        ),
+      SensorStatusTile(
+        info: SensorInfo.pms5003,
+        state: _sensorState,
+        provisional: provisional,
+        metrics: [
+          SensorMetric('PM2.5', _v(r?.pm25, 1), 'µg/m³'),
+          SensorMetric('PM10', _v(r?.pm10, 1), 'µg/m³'),
+        ],
+      ),
+      SensorStatusTile(
+        info: SensorInfo.dht22,
+        state: _sensorState,
+        provisional: provisional,
+        metrics: [
+          SensorMetric('Température', _v(r?.temperature, 1), '°C'),
+          SensorMetric('Humidité', _v(r?.humidity, 0), '%'),
+        ],
+      ),
+      if (!failed)
+        GlassCard(
+          strength: GlassStrength.strong,
+          radius: 22,
+          padding: const EdgeInsets.all(14),
+          child: Column(children: [
+            CountdownProgress(
+                remaining: _remaining, total: _total, active: _countdownRunning || _countdownDone),
+            const SizedBox(height: 10),
+            Text(
+              _countdownDone && _latest == null
+                  ? 'Stabilisation terminée, en attente de la première mesure…'
+                  : _status == ConnectionStatus.connected
+                      ? 'Merci de patienter : les résultats s’afficheront automatiquement.'
+                      : 'Connexion au dispositif en cours…',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 12.5, color: p.muted),
+            ),
+          ]),
+        ),
+      if (provisional || r == null)
+        Text(
+          'État de fonctionnement estimé par l’application.',
+          textAlign: TextAlign.center,
+          style: TextStyle(fontSize: 11.5, color: p.muted),
+        ),
+    ];
+
+    return AppScaffold(
+      title: 'Espace capteurs',
+      child: ListView(
+        padding: const EdgeInsets.fromLTRB(16, 4, 16, 20),
+        children: [
+          for (var i = 0; i < items.length; i++) ...[
+            if (i > 0) const SizedBox(height: 10),
+            FadeSlideIn(index: i, child: items[i]),
+          ],
+        ],
       ),
     );
   }

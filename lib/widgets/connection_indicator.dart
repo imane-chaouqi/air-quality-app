@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+
 import '../models/sensor_model.dart';
+import '../theme/app_colors.dart';
 
 /// Pastille + libellé de l'état de connexion à l'ESP32.
 class ConnectionIndicator extends StatelessWidget {
@@ -8,22 +10,26 @@ class ConnectionIndicator extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+    final p = AppPalette.of(context);
+    final color = AppColors.connection(status);
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 300),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
-        color: status.color.withAlpha(30),
+        color: color.withAlpha(p.dark ? 45 : 32),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: status.color),
+        border: Border.all(color: color.withAlpha(180)),
       ),
       child: Row(mainAxisSize: MainAxisSize.min, children: [
         status == ConnectionStatus.connecting
             ? SizedBox(
-                width: 12,
-                height: 12,
-                child: CircularProgressIndicator(strokeWidth: 2, color: status.color))
-            : Icon(Icons.circle, size: 12, color: status.color),
-        const SizedBox(width: 8),
-        Text(status.label, style: TextStyle(fontWeight: FontWeight.w600, color: status.color)),
+                width: 11,
+                height: 11,
+                child: CircularProgressIndicator(strokeWidth: 2, color: color))
+            : Icon(Icons.circle, size: 10, color: color),
+        const SizedBox(width: 7),
+        Text(status.label,
+            style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12.5, color: p.text)),
       ]),
     );
   }
