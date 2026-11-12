@@ -7,7 +7,14 @@ import 'analysis_screen.dart';
 const List<String> _heures = ['Moins de 4 h', '4 à 8 h', 'Plus de 8 h'];
 
 class FormScreen extends StatefulWidget {
-  const FormScreen({super.key});
+  final String userName;
+  final String userEmail;
+
+  const FormScreen({
+    super.key,
+    required this.userName,
+    required this.userEmail,
+  });
 
   @override
   State<FormScreen> createState() => _FormScreenState();
@@ -73,8 +80,13 @@ class _FormScreenState extends State<FormScreen> {
     } else {
       Navigator.push(
         context,
-        MaterialPageRoute(builder: (_) => AnalysisScreen(profil: _profil)),
-      );
+        MaterialPageRoute(
+          builder: (_) => AnalysisScreen(
+            profil: _profil,
+            userName: widget.userName,
+            userEmail: widget.userEmail,
+          ),
+        ),);
     }
   }
 

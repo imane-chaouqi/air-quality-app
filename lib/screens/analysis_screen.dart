@@ -2,13 +2,21 @@ import 'package:flutter/material.dart';
 import '../theme/app_colors.dart';
 import '../theme/profile_form_model.dart';
 import '../widgets/airsense_widgets.dart';
+import '../screens/dashboard_screen.dart';
 
 // Page d'analyse : profil, analyse courte, comment l'application aide, sensibilité.
 // Les seuils et recommandations seront affichés dans la page des mesures.
 class AnalysisScreen extends StatelessWidget {
-  final ProfileFormModel profil;
+    final ProfileFormModel profil;
+  final String userName;
+  final String userEmail;
 
-  const AnalysisScreen({super.key, required this.profil});
+  const AnalysisScreen({
+    super.key,
+    required this.profil,
+    required this.userName,
+    required this.userEmail,
+  });
 
   IconData _icone(int categorie) {
     if (categorie == 1) return Icons.medical_services_outlined;
@@ -339,12 +347,16 @@ class AnalysisScreen extends StatelessWidget {
                   flex: 3,
                   child: BoutonPrincipal(
                     texte: 'Continuer',
-                    onPressed: () {
-                      // À relier à la page des mesures quand elle sera prête
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('La page suivante sera reliée ici.'),
+                      onPressed: () {
+                      Navigator.pushAndRemoveUntil(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => DashboardScreen(
+                            userName: userName,
+                            userEmail: userEmail,
+                          ),
                         ),
+                        (route) => false,
                       );
                     },
                   ),
