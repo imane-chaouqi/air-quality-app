@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../theme/app_colors.dart';
 
-/// Petit logo (carré arrondi turquoise).
+/// Petit logo (carré arrondi en dégradé océan → turquoise).
 class LogoMark extends StatelessWidget {
   const LogoMark({super.key, this.size = 36});
   final double size;
@@ -19,16 +19,15 @@ class LogoMark extends StatelessWidget {
         gradient: const LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [Color(0xFF6AD0BA), AppColors.turquoise],
+          colors: [AppColors.ocean, AppColors.aqua],
         ),
-        border: Border.all(color: AppColors.champagne.withAlpha(180)),
       ),
-      child: Icon(Icons.air, size: size * 0.6, color: AppColors.navy),
+      child: Icon(Icons.air, size: size * 0.6, color: Colors.white),
     );
   }
 }
 
-/// Illustration vectorielle : anneaux, flux d'air et particules.
+/// Illustration vectorielle statique : anneaux, flux d'air et particules.
 class AirIllustration extends StatelessWidget {
   const AirIllustration({super.key, this.size = 130});
   final double size;
@@ -53,10 +52,10 @@ class _AirPainter extends CustomPainter {
     final r = s.width / 2;
     final ring = Paint()
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.2;
-    ring.color = AppColors.turquoise.withAlpha(dark ? 90 : 120);
+      ..strokeWidth = 1.4;
+    ring.color = AppColors.teal.withAlpha(dark ? 110 : 120);
     canvas.drawCircle(c, r * 0.98, ring);
-    ring.color = AppColors.champagne.withAlpha(dark ? 80 : 120);
+    ring.color = AppColors.aqua.withAlpha(dark ? 90 : 110);
     canvas.drawCircle(c, r * 0.80, ring);
 
     canvas.drawCircle(
@@ -66,7 +65,7 @@ class _AirPainter extends CustomPainter {
         ..shader = const LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [Color(0xFF1E3A52), AppColors.navy],
+          colors: [AppColors.ocean, AppColors.navyDeep],
         ).createShader(Rect.fromCircle(center: c, radius: r * 0.62)),
     );
 
@@ -74,7 +73,7 @@ class _AirPainter extends CustomPainter {
       ..style = PaintingStyle.stroke
       ..strokeCap = StrokeCap.round
       ..strokeWidth = 3.2;
-    final colors = [AppColors.turquoise, Colors.white, AppColors.champagne];
+    const colors = [AppColors.turquoise, Colors.white, AppColors.aqua];
     for (var i = 0; i < 3; i++) {
       final y = c.dy - r * 0.22 + i * r * 0.22;
       final x0 = c.dx - r * 0.36;
@@ -91,8 +90,9 @@ class _AirPainter extends CustomPainter {
     for (var i = 0; i < 7; i++) {
       final a = i * 2 * math.pi / 7 + 0.4;
       final d = r * (0.88 + (i % 3) * 0.04);
-      dot.color = (i.isEven ? AppColors.turquoise : AppColors.champagne).withAlpha(200);
-      canvas.drawCircle(c + Offset(math.cos(a) * d, math.sin(a) * d), 2.2 + (i % 3), dot);
+      dot.color = (i.isEven ? AppColors.turquoise : AppColors.leaf).withAlpha(200);
+      canvas.drawCircle(
+          c + Offset(math.cos(a) * d, math.sin(a) * d), 2.2 + (i % 3), dot);
     }
   }
 

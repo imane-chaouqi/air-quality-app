@@ -7,14 +7,14 @@ import '../theme/app_colors.dart';
 /// Intensité de l'effet vitré.
 enum GlassStrength { strong, medium, subtle }
 
-/// Carte « glassmorphism » : transparence, flou léger, bordure fine, reflet doux.
-/// La lisibilité prime : l'opacité reste élevée pour le texte.
+/// Carte « glassmorphism » : verre dépoli, flou léger, bordure fine, reflet
+/// doux. La lisibilité prime : l'opacité reste élevée pour le texte.
 class GlassCard extends StatelessWidget {
   const GlassCard({
     super.key,
     required this.child,
-    this.padding = const EdgeInsets.all(14),
-    this.radius = 20,
+    this.padding = const EdgeInsets.all(16),
+    this.radius = 22,
     this.strength = GlassStrength.medium,
     this.tint,
     this.onTap,
@@ -36,21 +36,21 @@ class GlassCard extends StatelessWidget {
     final double blur;
     switch (strength) {
       case GlassStrength.strong:
-        alpha = p.dark ? 160 : 215;
-        blur = 18;
+        alpha = p.dark ? 175 : 210;
+        blur = 16;
         break;
       case GlassStrength.medium:
-        alpha = p.dark ? 130 : 180;
+        alpha = p.dark ? 145 : 175;
         blur = 12;
         break;
       case GlassStrength.subtle:
-        alpha = p.dark ? 95 : 130;
-        blur = 0;
+        alpha = p.dark ? 105 : 125;
+        blur = 8;
         break;
     }
     var base = p.glassBase;
     if (tint != null) {
-      base = Color.alphaBlend(tint!.withAlpha(p.dark ? 40 : 30), base);
+      base = Color.alphaBlend(tint!.withAlpha(p.dark ? 46 : 34), base);
     }
     final radiusGeo = BorderRadius.circular(radius);
 
@@ -62,36 +62,33 @@ class GlassCard extends StatelessWidget {
       );
     }
 
-    Widget glass = DecoratedBox(
-      decoration: BoxDecoration(
-        borderRadius: radiusGeo,
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            base.withAlpha((alpha + 30).clamp(0, 255)),
-            base.withAlpha(alpha),
-          ],
+    final glass = BackdropFilter(
+      filter: ImageFilter.blur(sigmaX: blur, sigmaY: blur),
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          borderRadius: radiusGeo,
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              base.withAlpha((alpha + 30).clamp(0, 255)),
+              base.withAlpha(alpha),
+            ],
+          ),
+          border: Border.all(color: p.glassBorder),
         ),
-        border: Border.all(color: p.glassBorder),
+        child: content,
       ),
-      child: content,
     );
-    if (blur > 0) {
-      glass = BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: blur, sigmaY: blur),
-        child: glass,
-      );
-    }
 
     return DecoratedBox(
       decoration: BoxDecoration(
         borderRadius: radiusGeo,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withAlpha(p.dark ? 60 : 16),
-            blurRadius: 16,
-            offset: const Offset(0, 6),
+            color: p.shadow,
+            blurRadius: 24,
+            offset: const Offset(0, 8),
           ),
         ],
       ),

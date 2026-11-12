@@ -12,11 +12,10 @@ class ConnectionIndicator extends StatelessWidget {
   Widget build(BuildContext context) {
     final p = AppPalette.of(context);
     final color = AppColors.connection(status);
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 300),
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 6),
       decoration: BoxDecoration(
-        color: color.withAlpha(p.dark ? 45 : 32),
+        color: color.withAlpha(p.dark ? 50 : 34),
         borderRadius: BorderRadius.circular(20),
         border: Border.all(color: color.withAlpha(180)),
       ),
@@ -29,7 +28,8 @@ class ConnectionIndicator extends StatelessWidget {
             : Icon(Icons.circle, size: 10, color: color),
         const SizedBox(width: 7),
         Text(status.label,
-            style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12.5, color: p.text)),
+            style: TextStyle(
+                fontWeight: FontWeight.w600, fontSize: 12.5, color: p.text)),
       ]),
     );
   }

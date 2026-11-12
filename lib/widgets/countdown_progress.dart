@@ -1,12 +1,17 @@
 import 'dart:math' as math;
+import 'dart:ui' show FontFeature;
 
 import 'package:flutter/material.dart';
 
 import '../theme/app_colors.dart';
 
-/// Compte à rebours compact : anneau animé + temps restant + barre de
-/// progression + état de stabilisation. (Affichage uniquement : la logique du
-/// compte à rebours reste dans AnalysisScreen.)
+/// Compte à rebours compact : anneau + temps restant + barre de progression +
+/// état de stabilisation. (Affichage uniquement : la logique du compte à
+/// rebours reste dans AnalysisScreen.)
+///
+/// La progression est calculée directement à partir du temps restant et du
+/// total, sans animation intermédiaire : l'anneau, la barre et le texte sont
+/// toujours synchronisés.
 class CountdownProgress extends StatelessWidget {
   const CountdownProgress({
     super.key,
@@ -28,9 +33,10 @@ class CountdownProgress extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final p = AppPalette.of(context);
-    final progress = total.inSeconds == 0
+    final progress = total.inMilliseconds == 0
         ? 1.0
-        : (1 - remaining.inSeconds / total.inSeconds).clamp(0.0, 1.0);
+        : (1 - remaining.inMilliseconds / total.inMilliseconds)
+            .clamp(0.0, 1.0);
     final shown = active ? progress : 0.0;
     final done = total.inSeconds > 0 && remaining == Duration.zero;
     final stateColor = done ? AppColors.good : AppColors.moderate;
@@ -42,29 +48,28 @@ class CountdownProgress extends StatelessWidget {
 
     return Row(children: [
       SizedBox(
-        width: 108,
-        height: 108,
-        child: TweenAnimationBuilder<double>(
-          tween: Tween<double>(end: shown),
-          duration: const Duration(milliseconds: 900),
-          curve: Curves.easeOut,
-          builder: (context, v, _) => CustomPaint(
-            painter: _RingPainter(v, p.text.withAlpha(p.dark ? 30 : 22)),
-            child: Center(
-              child: Column(mainAxisSize: MainAxisSize.min, children: [
-                Text(_fmt(remaining),
-                    style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w700)),
-                Text('restant', style: TextStyle(fontSize: 11, color: p.muted)),
-              ]),
-            ),
+        width: 112,
+        height: 112,
+        child: CustomPaint(
+          painter: _RingPainter(shown, p.trackFill),
+          child: Center(
+            child: Column(mainAxisSize: MainAxisSize.min, children: [
+              Text(_fmt(remaining),
+                  style: const TextStyle(
+                    fontSize: 26,
+                    fontWeight: FontWeight.w800,
+                    fontFeatures: [FontFeature.tabularFigures()],
+                  )),
+              Text('restant', style: TextStyle(fontSize: 11.5, color: p.muted)),
+            ]),
           ),
         ),
       ),
-      const SizedBox(width: 14),
+      const SizedBox(width: 16),
       Expanded(
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           const Text('Stabilisation des capteurs',
-              style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
+              style: TextStyle(fontSize: 15.5, fontWeight: FontWeight.w700)),
           const SizedBox(height: 6),
           Row(children: [
             Icon(Icons.circle, size: 9, color: stateColor),
@@ -75,23 +80,19 @@ class CountdownProgress extends StatelessWidget {
                   overflow: TextOverflow.ellipsis),
             ),
           ]),
-          const SizedBox(height: 10),
-          TweenAnimationBuilder<double>(
-            tween: Tween<double>(end: shown),
-            duration: const Duration(milliseconds: 900),
-            builder: (context, v, _) => ClipRRect(
-              borderRadius: BorderRadius.circular(8),
-              child: LinearProgressIndicator(
-                value: v,
-                minHeight: 8,
-                color: AppColors.turquoise,
-                backgroundColor: p.text.withAlpha(p.dark ? 30 : 22),
-              ),
+          const SizedBox(height: 12),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: LinearProgressIndicator(
+              value: shown,
+              minHeight: 8,
+              color: AppColors.teal,
+              backgroundColor: p.trackFill,
             ),
           ),
-          const SizedBox(height: 5),
+          const SizedBox(height: 6),
           Text('${(shown * 100).round()} % de la stabilisation',
-              style: TextStyle(fontSize: 11.5, color: p.muted)),
+              style: TextStyle(fontSize: 12, color: p.muted)),
         ]),
       ),
     ]);
@@ -130,7 +131,7 @@ class _RingPainter extends CustomPainter {
         ..shader = const SweepGradient(
           startAngle: 0,
           endAngle: 2 * math.pi,
-          colors: [AppColors.turquoise, AppColors.champagne, AppColors.turquoise],
+          colors: [AppColors.ocean, AppColors.teal, AppColors.turquoise],
           transform: GradientRotation(-math.pi / 2),
         ).createShader(rect),
     );

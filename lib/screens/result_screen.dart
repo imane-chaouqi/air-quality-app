@@ -33,33 +33,35 @@ class ResultScreen extends StatelessWidget {
     final a = AirQualityAssessment.evaluate(reading);
     final level = a.level;
     final lc = AppColors.level(level);
-    final ok = AppColors.good;
-    final warn = AppColors.poor;
+    const ok = AppColors.good;
+    const warn = AppColors.amber;
 
     Widget pair(Widget l, Widget r) => IntrinsicHeight(
           child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
             Expanded(child: l),
-            const SizedBox(width: 10),
+            const SizedBox(width: 12),
             Expanded(child: r),
           ]),
         );
+
+    String fmt(double v) => v.toStringAsFixed(0);
 
     final items = <Widget>[
       if (reading.isSimulated) const SimulationBanner(),
       // Évaluation globale
       GlassCard(
         strength: GlassStrength.strong,
-        radius: 24,
+        radius: 26,
         tint: lc,
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(18),
         child: Column(children: [
           Row(children: [
             Container(
-              width: 58,
-              height: 58,
+              width: 60,
+              height: 60,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: lc.withAlpha(p.dark ? 60 : 50),
+                color: lc.withAlpha(p.dark ? 60 : 46),
                 border: Border.all(color: lc, width: 2),
               ),
               child: Icon(level.icon, size: 32, color: p.text),
@@ -70,33 +72,34 @@ class ResultScreen extends StatelessWidget {
                 Text('Qualité de l’air', style: TextStyle(fontSize: 12.5, color: p.muted)),
                 Text(level.label,
                     style: TextStyle(
-                        fontSize: 26,
+                        fontSize: 28,
                         fontWeight: FontWeight.w800,
+                        letterSpacing: -0.3,
                         color: AppColors.levelText(level, dark: p.dark))),
                 Text('Niveau de risque : ${level.index + 1} / 4',
                     style: TextStyle(fontSize: 12.5, color: p.muted)),
               ]),
             ),
           ]),
-          const SizedBox(height: 12),
+          const SizedBox(height: 14),
           Row(children: [
             for (var i = 0; i < 4; i++) ...[
               if (i > 0) const SizedBox(width: 5),
               Expanded(
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 500),
+                child: Container(
                   height: 6,
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(4),
-                    color: i <= level.index ? lc : p.text.withAlpha(p.dark ? 30 : 20),
+                    color: i <= level.index ? lc : p.trackFill,
                   ),
                 ),
               ),
             ],
           ]),
-          const SizedBox(height: 10),
+          const SizedBox(height: 12),
           Text(_summary(level),
-              textAlign: TextAlign.center, style: const TextStyle(fontSize: 13.5)),
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 14, height: 1.3)),
         ]),
       ),
       // Mesures 2 × 2
@@ -128,6 +131,12 @@ class ResultScreen extends StatelessWidget {
           icon: Icons.grain,
           color: AppColors.level(a.pm25Level),
           ratio: reading.pm25 / AirQualityReferences.pm25Interim2,
+          numericValue: reading.pm25,
+          thresholds: const GaugeThresholds(
+            AirQualityReferences.pm25Guideline,
+            AirQualityReferences.pm25Interim4,
+            AirQualityReferences.pm25Interim2,
+          ),
           statusText: a.pm25Level.label,
         ),
         MeasureCard(
@@ -137,58 +146,73 @@ class ResultScreen extends StatelessWidget {
           icon: Icons.blur_on,
           color: AppColors.level(a.pm10Level),
           ratio: reading.pm10 / AirQualityReferences.pm10Interim2,
+          numericValue: reading.pm10,
+          thresholds: const GaugeThresholds(
+            AirQualityReferences.pm10Guideline,
+            AirQualityReferences.pm10Interim4,
+            AirQualityReferences.pm10Interim2,
+          ),
           statusText: a.pm10Level.label,
         ),
       ),
       Text(
-        'Jauges PM : valeur rapportée à la cible intermédiaire OMS 2 (moyenne sur 24 h) : '
-        '50 µg/m³ (PM2.5) et 100 µg/m³ (PM10).',
-        style: TextStyle(fontSize: 11.5, color: p.muted),
+        'Barres PM : zones Bon, Modéré, Mauvais et Très mauvais selon les repères '
+        'OMS 2021 (moyennes sur 24 h). Seuils en µg/m³ : '
+        '${fmt(AirQualityReferences.pm25Guideline)} / ${fmt(AirQualityReferences.pm25Interim4)} / '
+        '${fmt(AirQualityReferences.pm25Interim2)} pour les PM2.5 ; '
+        '${fmt(AirQualityReferences.pm10Guideline)} / ${fmt(AirQualityReferences.pm10Interim4)} / '
+        '${fmt(AirQualityReferences.pm10Interim2)} pour les PM10.',
+        style: TextStyle(fontSize: 11.5, color: p.muted, height: 1.35),
       ),
       // Recommandations
       GlassCard(
-        padding: const EdgeInsets.all(14),
+        padding: const EdgeInsets.all(16),
+        radius: 22,
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Row(children: [
-            Icon(Icons.tips_and_updates_outlined, size: 20, color: p.accent),
+            Icon(Icons.tips_and_updates_outlined, size: 21, color: p.accentText),
             const SizedBox(width: 8),
             const Text('Recommandations',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+                style: TextStyle(fontSize: 16.5, fontWeight: FontWeight.w800)),
           ]),
           const SizedBox(height: 8),
           for (final r in a.recommendations)
             Padding(
-              padding: const EdgeInsets.symmetric(vertical: 4),
+              padding: const EdgeInsets.symmetric(vertical: 5),
               child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Padding(
-                  padding: const EdgeInsets.only(top: 2),
-                  child: Icon(Icons.check_circle_outline, size: 17, color: p.accent),
+                const Padding(
+                  padding: EdgeInsets.only(top: 1),
+                  child: Icon(Icons.check_circle, size: 19, color: AppColors.leaf),
                 ),
-                const SizedBox(width: 8),
-                Expanded(child: Text(r, style: const TextStyle(fontSize: 13.5, height: 1.3))),
+                const SizedBox(width: 10),
+                Expanded(child: Text(r, style: const TextStyle(fontSize: 13.5, height: 1.35))),
               ]),
             ),
         ]),
       ),
       // Exposition (conseil qualitatif)
-      GlassCard(
-        strength: GlassStrength.subtle,
-        padding: const EdgeInsets.all(14),
+      Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: p.warnFill,
+          borderRadius: BorderRadius.circular(22),
+          border: Border.all(color: AppColors.amber.withAlpha(120)),
+        ),
         child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Icon(Icons.schedule, size: 20, color: p.champagneText),
+          Icon(Icons.schedule, size: 21, color: p.warnIcon),
           const SizedBox(width: 10),
           Expanded(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               const Text('Exposition (conseil qualitatif)',
-                  style: TextStyle(fontSize: 14.5, fontWeight: FontWeight.w700)),
-              const SizedBox(height: 3),
-              Text(a.exposureAdvice, style: const TextStyle(fontSize: 13.5, height: 1.3)),
+                  style: TextStyle(fontSize: 14.5, fontWeight: FontWeight.w800)),
+              const SizedBox(height: 4),
+              Text(a.exposureAdvice, style: const TextStyle(fontSize: 13.5, height: 1.35)),
             ]),
           ),
         ]),
       ),
       Text(AirQualityReferences.disclaimer,
-          style: TextStyle(fontSize: 11.5, color: p.muted, height: 1.3)),
+          style: TextStyle(fontSize: 11.5, color: p.muted, height: 1.35)),
       CustomButton(
         label: 'Nouvelle mesure',
         icon: Icons.refresh,
@@ -200,10 +224,10 @@ class ResultScreen extends StatelessWidget {
       title: 'Résultats',
       showBack: false,
       child: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 4, 16, 20),
+        padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
         children: [
           for (var i = 0; i < items.length; i++) ...[
-            if (i > 0) const SizedBox(height: 10),
+            if (i > 0) const SizedBox(height: 12),
             FadeSlideIn(index: i, child: items[i]),
           ],
         ],

@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 
-/// Apparition progressive (fondu + léger glissement). L'index décale
-/// légèrement la durée pour donner un effet d'enchaînement discret.
+/// Apparition très discrète (simple fondu de 220 ms, sans glissement).
+/// Le paramètre [index] est conservé pour compatibilité avec l'ancienne API
+/// mais n'introduit plus de décalage : l'interface reste calme et stable.
 class FadeSlideIn extends StatelessWidget {
   const FadeSlideIn({super.key, required this.child, this.index = 0});
   final Widget child;
@@ -11,12 +12,9 @@ class FadeSlideIn extends StatelessWidget {
   Widget build(BuildContext context) {
     return TweenAnimationBuilder<double>(
       tween: Tween<double>(begin: 0, end: 1),
-      duration: Duration(milliseconds: 320 + 80 * index.clamp(0, 6)),
-      curve: Curves.easeOutCubic,
-      builder: (context, v, ch) => Opacity(
-        opacity: v,
-        child: Transform.translate(offset: Offset(0, (1 - v) * 14), child: ch),
-      ),
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOut,
+      builder: (context, v, ch) => Opacity(opacity: v, child: ch),
       child: child,
     );
   }

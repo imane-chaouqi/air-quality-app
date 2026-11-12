@@ -37,18 +37,18 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _feature(AppPalette p, IconData icon, String label) => Expanded(
         child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 9, horizontal: 4),
+          padding: const EdgeInsets.symmetric(vertical: 11, horizontal: 4),
           decoration: BoxDecoration(
-            color: p.text.withAlpha(p.dark ? 16 : 10),
-            borderRadius: BorderRadius.circular(14),
+            color: p.subtleFill,
+            borderRadius: BorderRadius.circular(16),
           ),
           child: Column(children: [
-            Icon(icon, size: 20, color: p.accent),
-            const SizedBox(height: 4),
+            Icon(icon, size: 22, color: p.accent),
+            const SizedBox(height: 5),
             Text(label,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600)),
+                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
           ]),
         ),
       );
@@ -61,22 +61,23 @@ class _HomeScreenState extends State<HomeScreen> {
       GlassCard(
         strength: GlassStrength.strong,
         radius: 28,
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, 14),
+        padding: const EdgeInsets.fromLTRB(18, 20, 18, 18),
         child: Column(children: [
-          const AirIllustration(size: 124),
-          const SizedBox(height: 8),
+          const AirIllustration(size: 128),
+          const SizedBox(height: 12),
           const Text(
             'Surveillance de la qualité de l’air intérieur',
             textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 19, fontWeight: FontWeight.w700, height: 1.25),
+            style: TextStyle(
+                fontSize: 20, fontWeight: FontWeight.w800, height: 1.25, letterSpacing: -0.2),
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: 8),
           Text(
             'Particules fines, température et humidité, avec des recommandations adaptées.',
             textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 13, color: p.muted, height: 1.3),
+            style: TextStyle(fontSize: 13.5, color: p.muted, height: 1.35),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 16),
           Row(children: [
             _feature(p, Icons.grain, 'PM2.5 · PM10'),
             const SizedBox(width: 8),
@@ -87,8 +88,11 @@ class _HomeScreenState extends State<HomeScreen> {
         ]),
       ),
       Column(children: [
-        CustomButton(label: 'Utiliser l’application', icon: Icons.play_arrow_rounded, onPressed: _use),
-        const SizedBox(height: 10),
+        CustomButton(
+            label: 'Utiliser l’application',
+            icon: Icons.play_arrow_rounded,
+            onPressed: _use),
+        const SizedBox(height: 12),
         CustomButton(
           label: 'Tableau de bord',
           icon: Icons.dashboard_outlined,
@@ -100,13 +104,15 @@ class _HomeScreenState extends State<HomeScreen> {
       GlassCard(
         strength: GlassStrength.subtle,
         padding: EdgeInsets.zero,
-        radius: 18,
+        radius: 20,
         child: Theme(
           data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
           child: ExpansionTile(
-            leading: Icon(Icons.science_outlined, color: p.champagneText),
+            leading: Icon(Icons.science_outlined, color: p.warnIcon),
+            iconColor: p.accentText,
+            collapsedIconColor: p.accentText,
             title: const Text('Réglages de simulation',
-                style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14.5)),
+                style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14.5)),
             subtitle: Text(_simulation ? 'Valeurs fictives' : 'Connexion réelle',
                 style: TextStyle(fontSize: 12, color: p.muted)),
             shape: const Border(),
@@ -130,6 +136,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     value: _scenario,
                     isDense: true,
                     underline: const SizedBox.shrink(),
+                    iconEnabledColor: p.accentText,
                     onChanged: (v) => setState(() => _scenario = v ?? _scenario),
                     items: SimulationScenario.values
                         .map((s) => DropdownMenuItem(value: s, child: Text(s.label)))
@@ -158,12 +165,12 @@ class _HomeScreenState extends State<HomeScreen> {
     return AppScaffold(
       title: 'AirSense',
       showBack: false,
-      leading: const LogoMark(size: 34),
+      leading: const LogoMark(size: 36),
       child: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 6, 16, 20),
+        padding: const EdgeInsets.fromLTRB(16, 6, 16, 24),
         children: [
           for (var i = 0; i < items.length; i++) ...[
-            if (i > 0) const SizedBox(height: 12),
+            if (i > 0) const SizedBox(height: 14),
             FadeSlideIn(index: i, child: items[i]),
           ],
         ],

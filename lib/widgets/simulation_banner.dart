@@ -11,19 +11,20 @@ class SimulationBanner extends StatelessWidget {
     final p = AppPalette.of(context);
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
-        color: AppColors.champagne.withAlpha(p.dark ? 40 : 55),
-        border: Border.all(color: AppColors.champagne.withAlpha(190)),
-        borderRadius: BorderRadius.circular(12),
+        color: p.warnFill,
+        border: Border.all(color: AppColors.amber.withAlpha(170)),
+        borderRadius: BorderRadius.circular(16),
       ),
       child: Row(children: [
-        Icon(Icons.science_outlined, size: 18, color: p.champagneText),
-        const SizedBox(width: 8),
+        Icon(Icons.science_outlined, size: 20, color: p.warnIcon),
+        const SizedBox(width: 10),
         Expanded(
           child: Text(
             'MODE SIMULATION : les valeurs affichées sont fictives.',
-            style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12.5, color: p.text),
+            style: TextStyle(
+                fontWeight: FontWeight.w600, fontSize: 12.5, color: p.text),
           ),
         ),
       ]),

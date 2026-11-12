@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 
 import '../theme/app_colors.dart';
 
-/// Bouton Premium réutilisable (même API qu'avant) : principal turquoise,
-/// secondaire vitré à liseré champagne, retour visuel à l'appui, chargement.
-class CustomButton extends StatefulWidget {
+/// Bouton réutilisable (même API qu'avant) : principal en dégradé
+/// océan → turquoise, secondaire vitré à contour bleu, état de chargement.
+class CustomButton extends StatelessWidget {
   const CustomButton({
     super.key,
     required this.label,
@@ -21,83 +21,74 @@ class CustomButton extends StatefulWidget {
   final bool loading;
 
   @override
-  State<CustomButton> createState() => _CustomButtonState();
-}
-
-class _CustomButtonState extends State<CustomButton> {
-  bool _down = false;
-
-  @override
   Widget build(BuildContext context) {
     final p = AppPalette.of(context);
-    final enabled = widget.onPressed != null && !widget.loading;
-    final fg = widget.secondary ? p.text : AppColors.navy;
-    final radius = BorderRadius.circular(14);
+    final enabled = onPressed != null && !loading;
+    final fg = secondary ? p.text : Colors.white;
+    final radius = BorderRadius.circular(26);
 
-    final content = widget.loading
+    final content = loading
         ? SizedBox(
             width: 20,
             height: 20,
             child: CircularProgressIndicator(strokeWidth: 2, color: fg),
           )
         : Row(mainAxisSize: MainAxisSize.min, children: [
-            if (widget.icon != null) ...[
-              Icon(widget.icon, size: 20, color: widget.secondary ? p.champagneText : fg),
+            if (icon != null) ...[
+              Icon(icon, size: 20, color: secondary ? p.accentText : fg),
               const SizedBox(width: 8),
             ],
             Flexible(
               child: Text(
-                widget.label,
+                label,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: TextStyle(color: fg, fontWeight: FontWeight.w600, fontSize: 15),
+                style: TextStyle(
+                    color: fg,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 16,
+                    letterSpacing: 0.1),
               ),
             ),
           ]);
 
-    final decoration = widget.secondary
+    final decoration = secondary
         ? BoxDecoration(
             borderRadius: radius,
-            color: p.glassBase.withAlpha(p.dark ? 110 : 170),
-            border: Border.all(color: AppColors.champagne.withAlpha(190), width: 1.2),
+            color: p.glassBase.withAlpha(p.dark ? 120 : 190),
+            border: Border.all(
+                color: p.dark ? AppColors.aqua : AppColors.ocean, width: 1.4),
           )
         : BoxDecoration(
             borderRadius: radius,
             gradient: const LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [Color(0xFF69D0BA), Color(0xFF4DB39D)],
+              begin: Alignment.centerLeft,
+              end: Alignment.centerRight,
+              colors: [AppColors.ocean, AppColors.teal],
             ),
-            border: Border.all(color: AppColors.champagne.withAlpha(160)),
             boxShadow: [
               BoxShadow(
-                color: AppColors.turquoise.withAlpha(p.dark ? 70 : 90),
-                blurRadius: 14,
-                offset: const Offset(0, 5),
+                color: AppColors.teal.withAlpha(p.dark ? 70 : 80),
+                blurRadius: 16,
+                offset: const Offset(0, 6),
               ),
             ],
           );
 
-    return AnimatedScale(
-      scale: _down ? 0.97 : 1,
-      duration: const Duration(milliseconds: 120),
-      child: AnimatedOpacity(
-        opacity: widget.onPressed == null ? 0.5 : 1,
-        duration: const Duration(milliseconds: 200),
-        child: DecoratedBox(
-          decoration: decoration,
-          child: Material(
-            type: MaterialType.transparency,
-            child: InkWell(
-              borderRadius: radius,
-              onTap: enabled ? widget.onPressed : null,
-              onHighlightChanged: (v) => setState(() => _down = v),
-              child: Container(
-                height: 48,
-                alignment: Alignment.center,
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: content,
-              ),
+    return Opacity(
+      opacity: onPressed == null ? 0.5 : 1,
+      child: DecoratedBox(
+        decoration: decoration,
+        child: Material(
+          type: MaterialType.transparency,
+          child: InkWell(
+            borderRadius: radius,
+            onTap: enabled ? onPressed : null,
+            child: Container(
+              height: 52,
+              alignment: Alignment.center,
+              padding: const EdgeInsets.symmetric(horizontal: 18),
+              child: content,
             ),
           ),
         ),

@@ -34,23 +34,25 @@ class SensorStatusTile extends StatelessWidget {
     final p = AppPalette.of(context);
     final color = AppColors.sensor(state);
     return GlassCard(
-      padding: const EdgeInsets.all(12),
-      radius: 18,
+      padding: const EdgeInsets.all(14),
+      radius: 20,
       child: Column(children: [
         Row(children: [
           Container(
-            width: 36,
-            height: 36,
+            width: 40,
+            height: 40,
             decoration: BoxDecoration(
-              color: AppColors.turquoise.withAlpha(p.dark ? 45 : 40),
-              borderRadius: BorderRadius.circular(11),
+              color: p.chipFill,
+              borderRadius: BorderRadius.circular(13),
             ),
-            child: Icon(info.icon, size: 20, color: p.accent),
+            child: Icon(info.icon, size: 22, color: p.accentText),
           ),
-          const SizedBox(width: 10),
+          const SizedBox(width: 12),
           Expanded(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(info.name, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
+              Text(info.name,
+                  style: const TextStyle(
+                      fontWeight: FontWeight.w700, fontSize: 15.5)),
               Text(info.measures,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
@@ -58,11 +60,10 @@ class SensorStatusTile extends StatelessWidget {
             ]),
           ),
           const SizedBox(width: 8),
-          AnimatedContainer(
-            duration: const Duration(milliseconds: 300),
-            padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
             decoration: BoxDecoration(
-              color: color.withAlpha(p.dark ? 45 : 32),
+              color: color.withAlpha(p.dark ? 50 : 34),
               borderRadius: BorderRadius.circular(16),
               border: Border.all(color: color.withAlpha(170)),
             ),
@@ -70,25 +71,31 @@ class SensorStatusTile extends StatelessWidget {
               Icon(Icons.circle, size: 8, color: color),
               const SizedBox(width: 5),
               Text(state.label,
-                  style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600, color: p.text)),
+                  style: TextStyle(
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w600,
+                      color: p.text)),
             ]),
           ),
         ]),
         if (metrics.isNotEmpty) ...[
-          const SizedBox(height: 10),
+          const SizedBox(height: 12),
           Row(children: [
             for (var i = 0; i < metrics.length; i++) ...[
-              if (i > 0) const SizedBox(width: 8),
+              if (i > 0) const SizedBox(width: 10),
               Expanded(child: _MetricCell(metric: metrics[i], dim: provisional)),
             ],
           ]),
           if (provisional)
             Padding(
-              padding: const EdgeInsets.only(top: 6),
+              padding: const EdgeInsets.only(top: 8),
               child: Align(
                 alignment: Alignment.centerLeft,
                 child: Text('Valeurs provisoires pendant la stabilisation.',
-                    style: TextStyle(fontSize: 11, fontStyle: FontStyle.italic, color: p.muted)),
+                    style: TextStyle(
+                        fontSize: 11.5,
+                        fontStyle: FontStyle.italic,
+                        color: p.muted)),
               ),
             ),
         ],
@@ -106,22 +113,26 @@ class _MetricCell extends StatelessWidget {
   Widget build(BuildContext context) {
     final p = AppPalette.of(context);
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
       decoration: BoxDecoration(
-        color: p.text.withAlpha(p.dark ? 14 : 10),
-        borderRadius: BorderRadius.circular(12),
+        color: p.subtleFill,
+        borderRadius: BorderRadius.circular(14),
       ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text(metric.label, style: TextStyle(fontSize: 11.5, color: p.muted)),
+        Text(metric.label, style: TextStyle(fontSize: 12, color: p.muted)),
         const SizedBox(height: 2),
         Text.rich(
           TextSpan(children: [
             TextSpan(
               text: metric.value,
               style: TextStyle(
-                  fontSize: 18, fontWeight: FontWeight.w700, color: dim ? p.muted : p.text),
+                  fontSize: 20,
+                  fontWeight: FontWeight.w800,
+                  color: dim ? p.muted : p.text),
             ),
-            TextSpan(text: ' ${metric.unit}', style: TextStyle(fontSize: 11, color: p.muted)),
+            TextSpan(
+                text: ' ${metric.unit}',
+                style: TextStyle(fontSize: 11.5, color: p.muted)),
           ]),
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
