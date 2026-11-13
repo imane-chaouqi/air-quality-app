@@ -1,369 +1,409 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+
+import '../models/sensor_model.dart';
+import '../services/iot_service.dart';
 import '../theme/app_colors.dart';
-import '../theme/profile_form_model.dart';
-import '../widgets/airsense_widgets.dart';
-import '../screens/dashboard_screen.dart';
+import '../widgets/app_scaffold.dart';
+import '../widgets/connection_indicator.dart';
+import '../widgets/countdown_progress.dart';
+import '../widgets/custom_button.dart';
+import '../widgets/fade_slide_in.dart';
+import '../widgets/glass_card.dart';
+import '../widgets/reading_sparkline.dart';
+import '../widgets/sensor_status_tile.dart';
+import '../widgets/simulation_banner.dart';
+import 'result_screen.dart';
 
-// Page d'analyse : profil, analyse courte, comment l'application aide, sensibilité.
-// Les seuils et recommandations seront affichés dans la page des mesures.
-class AnalysisScreen extends StatelessWidget {
-    final ProfileFormModel profil;
-  final String userName;
-  final String userEmail;
-
+/// Espace capteurs : connexion à l'ESP32, activation, stabilisation (4 min),
+/// puis passage automatique à l'écran des résultats.
+class AnalysisScreen extends StatefulWidget {
   const AnalysisScreen({
     super.key,
-    required this.profil,
-    required this.userName,
-    required this.userEmail,
+    this.simulation = true,
+    this.scenario = SimulationScenario.good,
+    this.simulateConnectionError = false,
+    this.fastCountdown = false,
+    this.transport,
+    this.clock,
   });
 
-  IconData _icone(int categorie) {
-    if (categorie == 1) return Icons.medical_services_outlined;
-    if (categorie == 2) return Icons.family_restroom;
-    if (categorie == 3) return Icons.fitness_center;
-    return Icons.eco;
+  final bool simulation;
+  final SimulationScenario scenario;
+  final bool simulateConnectionError;
+
+  /// Démo uniquement (simulation) : réduit les 4 minutes à 10 secondes.
+  final bool fastCountdown;
+
+  /// Transport réel (à fournir quand le protocole ESP32 sera défini).
+  final Esp32Transport? transport;
+
+  /// Horloge injectable (tests uniquement). Par défaut : DateTime.now.
+  final DateTime Function()? clock;
+
+  static const Duration stabilization = Duration(minutes: 4);
+
+  @override
+  State<AnalysisScreen> createState() => _AnalysisScreenState();
+}
+
+class _AnalysisScreenState extends State<AnalysisScreen>
+    with WidgetsBindingObserver {
+  static const int _maxHistory = 90;
+
+  late IotService _service;
+  StreamSubscription<ConnectionStatus>? _statusSub;
+  StreamSubscription<SensorReading>? _readingSub;
+
+  /// UNIQUE timer du compte à rebours (jamais plus d'un actif à la fois).
+  Timer? _timer;
+
+  /// Identifie la session en cours : une session périmée (retry, dispose)
+  /// ne peut plus démarrer de compte à rebours.
+  int _generation = 0;
+
+  late Duration _total;
+  late Duration _remaining;
+
+  /// Instant de fin du compte à rebours. Le temps restant est TOUJOURS
+  /// recalculé à partir de cette échéance (et non décrémenté tick par tick).
+  late DateTime _deadline;
+
+  ConnectionStatus _status = ConnectionStatus.disconnected;
+  String? _error;
+  SensorReading? _latest;
+  final List<double> _pm25History = <double>[];
+  bool _countdownRunning = false;
+  bool _countdownDone = false;
+  bool _linkLost = false;
+  bool _navigated = false;
+
+  DateTime _now() => (widget.clock ?? DateTime.now)();
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _resetState();
+    _start();
   }
 
-  Color _couleurSensibilite(String niveau) {
-    if (niveau == 'très élevée') return const Color(0xFFC62828);
-    if (niveau == 'élevée') return const Color(0xFFE08A00);
-    return AppColors.turquoiseFonce;
+  void _resetState() {
+    _total = widget.simulation && widget.fastCountdown
+        ? const Duration(seconds: 10)
+        : AnalysisScreen.stabilization;
+    _remaining = _total;
+    _countdownRunning = false;
+    _countdownDone = false;
+    _linkLost = false;
+    _latest = null;
+    _error = null;
+    _pm25History.clear();
   }
 
-  // Transforme un ensemble de réponses en texte : "poussière, fumée"
-  String _liste(Iterable<String> elements) {
-    return elements.map((e) => e.toLowerCase()).join(', ');
-  }
-
-  // ----- Phrases de l'analyse -----
-
-  String _phraseGina() {
-    final score = profil.scoreGina();
-    String etat;
-    if (score == 0) {
-      etat = 'bien contrôlé';
-    } else if (score <= 2) {
-      etat = 'partiellement contrôlé';
-    } else {
-      etat = 'non contrôlé';
-    }
-    return "Les réponses au questionnaire suggèrent que l'asthme est $etat.";
-  }
-
-  // Phrases propres à une catégorie, de la plus importante à la moins importante
-  List<String> _phrasesCategorie(int categorie) {
-    final phrases = <String>[];
-
-    if (categorie == 1) {
-      final diagnostics = profil.diagnostics
-          .map((d) => d == 'Autre' ? 'autre problème respiratoire' : d.toLowerCase())
-          .join(', ');
-      phrases.add('Un problème respiratoire a été indiqué : $diagnostics.');
-      if (profil.criseSevere == true) {
-        phrases.add('Une crise sévère a été signalée au cours des 12 derniers mois.');
-      }
-      if (profil.asthme) phrases.add(_phraseGina());
-      if (profil.declencheurs.isNotEmpty) {
-        phrases.add('Les déclencheurs connus sont : ${_liste(profil.declencheurs)}.');
-      }
-      phrases.add(
-        "Les particules fines et l'humidité peuvent influencer les symptômes : "
-        "l'air de la pièce mérite une surveillance renforcée.",
-      );
-    } else if (categorie == 2) {
-      phrases.add(
-        "Une personne plus sensible à la qualité de l'air (bébé, jeune enfant "
-        "ou personne de 65 ans et plus) utilise cette pièce.",
-      );
-      if (profil.dortDansPiece == true) {
-        phrases.add("Elle y dort, ce qui allonge son temps d'exposition à l'air de la pièce.");
-      }
-      phrases.add("Des seuils d'alerte plus stricts seront appliqués.");
-    } else if (categorie == 3) {
-      phrases.add(
-        'La pièce est utilisée pour le sport ou le télétravail '
-        '(${_liste(profil.activites)}).',
-      );
-      if (profil.symptomes.isNotEmpty) {
-        phrases.add(
-          'Des symptômes sont ressentis dans la pièce : ${_liste(profil.symptomes)}.',
-        );
-        phrases.add(
-          "Ils ne sont pas propres à la qualité de l'air, mais la surveillance "
-          "peut aider à repérer une cause possible.",
-        );
-      }
-    } else {
-      phrases.add("Aucune situation particulière n'a été signalée.");
-      phrases.add(
-        "L'application vous aidera à suivre l'air, la température et "
-        "l'humidité de la pièce au quotidien.",
-      );
-    }
-    return phrases;
-  }
-
-  // Phrases sur le logement (sources de particules, humidité, aération)
-  List<String> _phrasesContexte() {
-    final phrases = <String>[];
-    if (profil.sources.isNotEmpty) {
-      phrases.add(
-        'Des sources de particules ont été signalées dans le logement : '
-        '${_liste(profil.sources)}.',
-      );
-    }
-    if (profil.moisissures == true) {
-      phrases.add(
-        "Des traces d'humidité ou de moisissures ont été signalées : une "
-        "humidité élevée favorise les moisissures et les acariens.",
-      );
-    }
-    if (profil.aeration == 'Rarement') {
-      phrases.add(
-        "La pièce est rarement aérée, ce qui peut laisser les polluants s'accumuler.",
-      );
-    }
-    return phrases;
-  }
-
-  // Assemble l'analyse complète : 6 phrases maximum
-  List<String> _analyse(List<int> categories, String niveau) {
-    final budget = niveau == 'très élevée' ? 5 : 6;
-    final parCategorie =
-        categories.length == 1 ? budget : budget ~/ categories.length;
-
-    final phrases = <String>[];
-    for (final categorie in categories) {
-      phrases.addAll(_phrasesCategorie(categorie).take(parCategorie));
-    }
-    phrases.addAll(_phrasesContexte().take(budget - phrases.length));
-
-    if (niveau == 'très élevée') {
-      phrases.add(
-        "Si les symptômes sont fréquents ou s'aggravent, parlez-en à un "
-        "médecin : cette application ne remplace pas un avis médical.",
-      );
-    }
-    return phrases;
-  }
-
-  // ----- Comment l'application peut aider -----
-
-  List<String> _aides(List<int> categories) {
-    final aides = <String>[
-      "Elle mesure les particules fines (PM1.0, PM2.5, PM10), la température "
-          "et l'humidité de la pièce.",
-    ];
-    for (final categorie in categories) {
-      if (categorie == 1) {
-        aides.add(
-          "Elle vous prévient quand les particules ou l'humidité atteignent "
-          "des niveaux qui peuvent aggraver les symptômes.",
-        );
-      } else if (categorie == 2) {
-        aides.add(
-          "Elle vous prévient quand l'air de la pièce devient moins sain pour "
-          "la personne vulnérable, avec des seuils d'alerte plus stricts.",
-        );
-      } else if (categorie == 3) {
-        aides.add(
-          "Elle vous aide à choisir le bon moment pour aérer la pièce ou "
-          "faire votre activité.",
-        );
-      } else {
-        aides.add(
-          "Elle vous permet de suivre au quotidien la propreté de l'air, la "
-          "température et l'humidité.",
-        );
-      }
-    }
-    return aides;
-  }
-
-  Widget _titreSection(String texte) {
-    return Padding(
-      padding: const EdgeInsets.only(top: 26, bottom: 12),
-      child: Text(texte, style: styleQuestion),
+  /// Crée le service et lance connexion + activation.
+  Future<void> _start() async {
+    final gen = ++_generation;
+    final service = createIotService(
+      simulation: widget.simulation,
+      scenario: widget.scenario,
+      simulateConnectionError: widget.simulateConnectionError,
+      transport: widget.transport,
     );
+    _service = service;
+    _status = service.status;
+    _statusSub = service.statusStream.listen(_onStatus);
+    _readingSub = service.readingStream.listen((r) {
+      if (!mounted || gen != _generation) return;
+      setState(() {
+        _latest = r;
+        _pm25History.add(r.pm25);
+        if (_pm25History.length > _maxHistory) _pm25History.removeAt(0);
+      });
+      _tryFinish();
+    });
+
+    await service.connect();
+    if (!mounted || gen != _generation || service.status != ConnectionStatus.connected) {
+      return;
+    }
+    try {
+      await service.requestActivation();
+      if (!mounted || gen != _generation) return;
+      _startCountdown();
+    } catch (e) {
+      if (mounted && gen == _generation) {
+        setState(() {
+          _status = ConnectionStatus.error;
+          _error = 'Activation impossible : $e';
+        });
+      }
+    }
+  }
+
+  void _onStatus(ConnectionStatus s) {
+    if (!mounted) return;
+    // Liaison perdue ou en erreur pendant la stabilisation : on arrête le
+    // compte à rebours ET on l'indique clairement (carte d'erreur + Réessayer).
+    final lost = (s == ConnectionStatus.error || s == ConnectionStatus.disconnected) &&
+        _countdownRunning;
+    if (lost) _stopTimer();
+    setState(() {
+      _status = s;
+      _error = _service.errorMessage;
+      if (lost) {
+        _countdownRunning = false;
+        _linkLost = true;
+        _error ??= 'La liaison avec le dispositif a été perdue.';
+      }
+    });
+  }
+
+  // ---------------------------------------------------------------------
+  // COMPTE À REBOURS
+  // ---------------------------------------------------------------------
+
+  void _stopTimer() {
+    _timer?.cancel();
+    _timer = null;
+  }
+
+  /// Démarre le compte à rebours (une seule fois, un seul timer).
+  void _startCountdown() {
+    if (!mounted || _countdownDone || (_timer?.isActive ?? false)) return;
+    _deadline = _now().add(_total);
+    setState(() {
+      _remaining = _total;
+      _countdownRunning = true;
+    });
+    // 250 ms : le texte (secondes entières) change au bon instant même si un
+    // tick est retardé. Le temps restant vient de l'échéance, pas du nombre de ticks.
+    _timer = Timer.periodic(const Duration(milliseconds: 250), (_) => _tick());
+  }
+
+  static int _ceilSeconds(Duration d) => (d.inMilliseconds + 999) ~/ 1000;
+
+  void _tick() {
+    if (!mounted || !_countdownRunning) return;
+    final left = _deadline.difference(_now());
+    if (left <= Duration.zero) {
+      _completeCountdown();
+      return;
+    }
+    final capped = left > _total ? _total : left;
+    final secs = _ceilSeconds(capped);
+    if (secs != _remaining.inSeconds) {
+      setState(() => _remaining = Duration(seconds: secs));
+    }
+  }
+
+  /// Action de fin : exécutée une seule fois (le timer est arrêté et
+  /// `_countdownRunning` passe à false avant toute autre chose).
+  void _completeCountdown() {
+    _stopTimer();
+    setState(() {
+      _remaining = Duration.zero;
+      _countdownRunning = false;
+      _countdownDone = true;
+    });
+    _tryFinish();
   }
 
   @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // Au retour au premier plan (écran déverrouillé, retour dans l'app) on
+    // resynchronise immédiatement avec l'échéance réelle.
+    if (state == AppLifecycleState.resumed) _tick();
+  }
+
+  /// Passe aux résultats quand stabilisation terminée ET mesure disponible.
+  void _tryFinish() {
+    if (_navigated || !mounted || !_countdownDone || _latest == null) return;
+    _navigated = true;
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(builder: (_) => ResultScreen(reading: _latest!)),
+    );
+  }
+
+  Future<void> _retry() async {
+    _generation++; // invalide toute session en cours
+    await _teardown();
+    if (!mounted) return;
+    setState(_resetState);
+    await _start();
+  }
+
+  Future<void> _teardown() async {
+    _stopTimer();
+    await _statusSub?.cancel();
+    await _readingSub?.cancel();
+    _statusSub = null;
+    _readingSub = null;
+    _service.dispose();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _generation++;
+    _stopTimer();
+    _statusSub?.cancel();
+    _readingSub?.cancel();
+    _service.disconnect();
+    _service.dispose();
+    super.dispose();
+  }
+
+  SensorState get _sensorState {
+    if (_status != ConnectionStatus.connected) return SensorState.unknown;
+    return _countdownDone ? SensorState.ready : SensorState.stabilizing;
+  }
+
+  String get _systemText {
+    if (_status == ConnectionStatus.error) return 'Système : erreur de liaison';
+    if (_status == ConnectionStatus.connecting) {
+      return 'Connexion au dispositif en cours…';
+    }
+    if (_status == ConnectionStatus.connected) {
+      return _countdownDone ? 'Système prêt' : 'Système actif · stabilisation en cours';
+    }
+    return 'Système en attente';
+  }
+
+  String _v(double? v, int digits) => v == null ? '—' : v.toStringAsFixed(digits);
+
+  @override
   Widget build(BuildContext context) {
-    final categories = profil.detecterCategories();
-    final niveau = profil.niveauSensibilite();
+    final p = AppPalette.of(context);
+    final failed = _status == ConnectionStatus.error || _linkLost;
+    final r = _latest;
+    final provisional = _sensorState == SensorState.stabilizing && r != null;
 
-    return Scaffold(
-      backgroundColor: AppColors.fond,
-      body: Column(
-        children: [
+    final items = <Widget>[
+      if (widget.simulation) const SimulationBanner(),
+      GlassCard(
+        strength: GlassStrength.strong,
+        padding: const EdgeInsets.all(14),
+        radius: 20,
+        child: Row(children: [
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: p.chipFill,
+              borderRadius: BorderRadius.circular(13),
+            ),
+            child: Icon(Icons.memory, size: 22, color: p.accentText),
+          ),
+          const SizedBox(width: 12),
           Expanded(
-            child: SingleChildScrollView(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const AirSenseHeader(),
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text('Analyse et orientation', style: styleTitrePage),
-                        const SizedBox(height: 6),
-                        const Text(
-                          'Voici ce que nous avons compris de votre situation.',
-                          style: styleSousTitre,
-                        ),
-
-                        // 1. Profil
-                        _titreSection('Votre profil'),
-                        ...List.generate(categories.length, (i) {
-                          return OptionTuile(
-                            titre: ProfileFormModel.nomCategorie(categories[i]),
-                            sousTitre: i == 0 ? 'Profil principal' : 'Profil secondaire',
-                            icone: _icone(categories[i]),
-                            teinte: categories[i] - 1,
-                            selectionnee: i == 0,
-                            indicateur: false,
-                          );
-                        }),
-
-                        // 2. Analyse
-                        _titreSection('Votre analyse'),
-                        CarteBlanche(
-                          child: Text(
-                            _analyse(categories, niveau).join(' '),
-                            style: const TextStyle(
-                              fontSize: 15,
-                              height: 1.5,
-                              color: AppColors.texte,
-                            ),
-                          ),
-                        ),
-
-                        // 3. Comment l'application peut vous aider
-                        _titreSection("Comment l'application peut vous aider"),
-                        CarteBlanche(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              ..._aides(categories).map((texte) {
-                                return Padding(
-                                  padding: const EdgeInsets.only(bottom: 10),
-                                  child: Row(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      const Icon(
-                                        Icons.check_circle,
-                                        color: AppColors.turquoiseFonce,
-                                        size: 22,
-                                      ),
-                                      const SizedBox(width: 10),
-                                      Expanded(
-                                        child: Text(
-                                          texte,
-                                          style: const TextStyle(
-                                            fontSize: 15,
-                                            height: 1.4,
-                                            color: AppColors.texte,
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                );
-                              }),
-                              const Text(
-                                'Elle ne détecte pas les gaz (CO, CO₂, COV) ni les pollens.',
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  color: AppColors.texteSecondaire,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-
-                        // 4. Sensibilité
-                        _titreSection('Niveau de sensibilité'),
-                        CarteBlanche(
-                          child: Row(
-                            children: [
-                              const Icon(
-                                Icons.shield_outlined,
-                                color: AppColors.turquoiseFonce,
-                                size: 28,
-                              ),
-                              const SizedBox(width: 12),
-                              const Expanded(
-                                child: Text(
-                                  'Sensibilité',
-                                  style: TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w600,
-                                    color: AppColors.texte,
-                                  ),
-                                ),
-                              ),
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 16,
-                                  vertical: 7,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: _couleurSensibilite(niveau),
-                                  borderRadius: BorderRadius.circular(20),
-                                ),
-                                child: Text(
-                                  niveau,
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              const Text('Liaison avec l’ESP32',
+                  style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15.5)),
+              Text(_systemText,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(fontSize: 12, color: p.muted)),
+            ]),
+          ),
+          const SizedBox(width: 8),
+          ConnectionIndicator(status: _status),
+        ]),
+      ),
+      if (failed)
+        GlassCard(
+          tint: AppColors.alertRed,
+          padding: const EdgeInsets.all(14),
+          child: Column(children: [
+            Row(children: [
+              const Icon(Icons.error_outline, color: AppColors.alertRed, size: 26),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(_error ?? 'Erreur de connexion.',
+                    style: const TextStyle(fontSize: 13.5, height: 1.3)),
               ),
+            ]),
+            const SizedBox(height: 12),
+            CustomButton(label: 'Réessayer', icon: Icons.refresh, onPressed: _retry),
+          ]),
+        ),
+      if (!failed)
+        GlassCard(
+          strength: GlassStrength.strong,
+          radius: 24,
+          padding: const EdgeInsets.all(16),
+          child: Column(children: [
+            CountdownProgress(
+                remaining: _remaining,
+                total: _total,
+                active: _countdownRunning || _countdownDone),
+            const SizedBox(height: 12),
+            Text(
+              _countdownDone && _latest == null
+                  ? 'Stabilisation terminée, en attente de la première mesure…'
+                  : _status == ConnectionStatus.connected
+                      ? 'Merci de patienter : les résultats s’afficheront automatiquement.'
+                      : 'Connexion au dispositif en cours…',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 12.5, color: p.muted, height: 1.3),
             ),
-          ),
-          BarreBasse(
-            child: Row(
-              children: [
-                Expanded(
-                  flex: 2,
-                  child: BoutonSecondaire(
-                    texte: 'Retour',
-                    onPressed: () => Navigator.pop(context),
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  flex: 3,
-                  child: BoutonPrincipal(
-                    texte: 'Continuer',
-                      onPressed: () {
-                      Navigator.pushAndRemoveUntil(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => DashboardScreen(
-                            userName: userName,
-                            userEmail: userEmail,
-                          ),
-                        ),
-                        (route) => false,
-                      );
-                    },
-                  ),
-                ),
-              ],
-            ),
-          ),
+          ]),
+        ),
+      SensorStatusTile(
+        info: SensorInfo.pms5003,
+        state: _sensorState,
+        provisional: provisional,
+        metrics: [
+          SensorMetric('PM2.5', _v(r?.pm25, 1), 'µg/m³'),
+          SensorMetric('PM10', _v(r?.pm10, 1), 'µg/m³'),
+        ],
+      ),
+      SensorStatusTile(
+        info: SensorInfo.dht22,
+        state: _sensorState,
+        provisional: provisional,
+        metrics: [
+          SensorMetric('Température', _v(r?.temperature, 1), '°C'),
+          SensorMetric('Humidité', _v(r?.humidity, 0), '%'),
+        ],
+      ),
+      if (_pm25History.length >= 2)
+        GlassCard(
+          padding: const EdgeInsets.fromLTRB(14, 12, 14, 10),
+          radius: 20,
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Row(children: [
+              Icon(Icons.show_chart, size: 20, color: p.accentText),
+              const SizedBox(width: 8),
+              const Expanded(
+                child: Text('Évolution des PM2.5',
+                    style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14.5)),
+              ),
+              Text('${_pm25History.length} mesures',
+                  style: TextStyle(fontSize: 12, color: p.muted)),
+            ]),
+            const SizedBox(height: 8),
+            ReadingSparkline(values: _pm25History, color: p.accent),
+          ]),
+        ),
+      if (provisional || r == null)
+        Text(
+          'État de fonctionnement estimé par l’application.',
+          textAlign: TextAlign.center,
+          style: TextStyle(fontSize: 11.5, color: p.muted),
+        ),
+    ];
+
+    return AppScaffold(
+      title: 'Espace capteurs',
+      child: ListView(
+        padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
+        children: [
+          for (var i = 0; i < items.length; i++) ...[
+            if (i > 0) const SizedBox(height: 12),
+            FadeSlideIn(index: i, child: items[i]),
+          ],
         ],
       ),
     );

@@ -1,32 +1,29 @@
 import 'package:flutter/material.dart';
-import 'theme/app_colors.dart';
 import 'screens/home_screen.dart';
+import 'theme/app_theme.dart';
+import 'theme/theme_controller.dart';
 
-void main() {
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  runApp(const MyApp());
+  await themeController.load(); // thème mémorisé (clair / sombre)
+  runApp(const AirSenseApp());
 }
 
-class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+class AirSenseApp extends StatelessWidget {
+  const AirSenseApp({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'AirSense',
-      debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        useMaterial3: true,
-        scaffoldBackgroundColor: AppColors.background,
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: AppColors.primaryTeal,
-          primary: AppColors.primaryDark,
-          secondary: AppColors.primaryTeal,
-          surface: AppColors.background,
-        ),
-        fontFamily: 'Roboto',
+    return ListenableBuilder(
+      listenable: themeController,
+      builder: (context, _) => MaterialApp(
+        title: 'AirSense',
+        debugShowCheckedModeBanner: false,
+        theme: AppTheme.light,
+        darkTheme: AppTheme.dark,
+        themeMode: themeController.mode,
+        home: const HomeScreen(),
       ),
-      home: const HomeScreen(),
     );
   }
 }

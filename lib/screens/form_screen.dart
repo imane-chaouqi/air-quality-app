@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import '../theme/profile_form_model.dart';
 import '../theme/app_colors.dart';
 import '../widgets/airsense_widgets.dart';
-import 'analysis_screen.dart';
+import 'profile_analysis_screen.dart';
 
 const List<String> _heures = ['Moins de 4 h', '4 à 8 h', 'Plus de 8 h'];
 
@@ -81,7 +81,7 @@ class _FormScreenState extends State<FormScreen> {
       Navigator.push(
         context,
         MaterialPageRoute(
-          builder: (_) => AnalysisScreen(
+          builder: (_) => ProfileAnalysisScreen(
             profil: _profil,
             userName: widget.userName,
             userEmail: widget.userEmail,
