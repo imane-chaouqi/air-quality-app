@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../theme/app_colors.dart';
+import '../services/api_service.dart';
 import 'login_screen.dart';
+import 'form_screen.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -10,11 +13,14 @@ class RegisterScreen extends StatefulWidget {
 }
 
 class _RegisterScreenState extends State<RegisterScreen> {
-  // Contrôleurs pour les 4 champs demandés
+  // Contrôleurs pour les champs
   final TextEditingController _nomController = TextEditingController();
   final TextEditingController _prenomController = TextEditingController();
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
+  final TextEditingController _confirmPasswordController = TextEditingController();
+
+  bool _isLoading = false;
 
   @override
   void dispose() {
@@ -22,7 +28,105 @@ class _RegisterScreenState extends State<RegisterScreen> {
     _prenomController.dispose();
     _emailController.dispose();
     _passwordController.dispose();
+    _confirmPasswordController.dispose();
     super.dispose();
+  }
+
+  void _handleRegister() async {
+    String nom = _nomController.text.trim();
+    String prenom = _prenomController.text.trim();
+    String email = _emailController.text.trim();
+    String password = _passwordController.text;
+    String confirmPassword = _confirmPasswordController.text;
+
+    // 1. Vérification des champs vides
+    if (nom.isEmpty || prenom.isEmpty || email.isEmpty || password.isEmpty || confirmPassword.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Veuillez remplir tous les champs svp.'),
+          backgroundColor: Colors.redAccent,
+        ),
+      );
+      return;
+    }
+
+    // 2. Validation stricte du format de l'e-mail sans mention superflue
+    final emailRegex = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
+    if (!emailRegex.hasMatch(email)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Veuillez entrer une adresse e-mail valide.'),
+          backgroundColor: Colors.redAccent,
+        ),
+      );
+      return;
+    }
+
+    // 3. Vérification de la correspondance des mots de passe
+    if (password != confirmPassword) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Les mots de passe ne correspondent pas.'),
+          backgroundColor: Colors.redAccent,
+        ),
+      );
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+    });
+
+    // Données de profil associées à l'utilisateur
+    Map<String, dynamic> profilData = {
+      'name': '$prenom $nom',
+      'trancheAge': '20-30',
+      'piece': 'Chambre',
+    };
+
+    // 4. Appel de l'API d'inscription sécurisée
+    bool success = await ApiService.registerUser(
+      email,
+      password,
+      confirmPassword,
+      profilData,
+    );
+
+    setState(() {
+      _isLoading = false;
+    });
+
+    if (success) {
+      // 5. Enregistrer automatiquement l'e-mail pour garder la session active
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('user_email', email);
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Inscription réussie ! Bienvenue.'),
+          backgroundColor: Colors.green,
+        ),
+      );
+
+      // 6. Redirection directe vers le FormScreen
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(
+          builder: (_) => FormScreen(
+            userName: '$prenom $nom',
+            userEmail: email,
+          ),
+        ),
+        (route) => false,
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("Erreur lors de l'inscription (Cet email existe peut-être déjà)."),
+          backgroundColor: Colors.redAccent,
+        ),
+      );
+    }
   }
 
   @override
@@ -57,7 +161,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // Titre et Avatar minimaliste de la maquette
+              // Titre et Avatar
               Center(
                 child: Column(
                   children: [
@@ -84,7 +188,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
               ),
               const SizedBox(height: 24),
 
-              // Formulaire des 4 champs (Nom, Prénom, Email, Mot de passe)
+              // Formulaire (Nom, Prénom, Email, Mot de passe, Confirmation)
               Container(
                 padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
@@ -124,12 +228,19 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       icon: Icons.lock_outline,
                       isPassword: true,
                     ),
+                    const SizedBox(height: 14),
+                    _buildTextField(
+                      controller: _confirmPasswordController,
+                      hint: 'Confirmer le mot de passe',
+                      icon: Icons.lock_reset,
+                      isPassword: true,
+                    ),
                   ],
                 ),
               ),
               const SizedBox(height: 24),
 
-              // Bouton "Suivant ➔" en dégradé
+              // Bouton d'inscription
               Container(
                 decoration: BoxDecoration(
                   gradient: const LinearGradient(
@@ -145,49 +256,31 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   ],
                 ),
                 child: ElevatedButton(
-                  onPressed: () {
-                    String nom = _nomController.text.trim();
-                    String prenom = _prenomController.text.trim();
-                    String email = _emailController.text.trim();
-
-                    if (nom.isEmpty || prenom.isEmpty || email.isEmpty) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Veuillez remplir tous les champs svp.'),
-                          backgroundColor: Colors.redAccent,
-                        ),
-                      );
-                      return;
-                    }
-
-                    // Renvoie les données vers l'accueil pour alimenter le Profil
-                    Navigator.pop(context, {
-                      'name': '$prenom $nom',
-                      'email': email,
-                    });
-                  },
+                  onPressed: _isLoading ? null : _handleRegister,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.transparent,
                     shadowColor: Colors.transparent,
                     padding: const EdgeInsets.symmetric(vertical: 16),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
                   ),
-                  child: const Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(
-                        'Suivant',
-                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Colors.white),
-                      ),
-                      SizedBox(width: 8),
-                      Icon(Icons.arrow_forward, color: Colors.white, size: 18),
-                    ],
-                  ),
+                  child: _isLoading
+                      ? const CircularProgressIndicator(color: Colors.white)
+                      : const Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(
+                              "S'inscrire",
+                              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Colors.white),
+                            ),
+                            SizedBox(width: 8),
+                            Icon(Icons.arrow_forward, color: Colors.white, size: 18),
+                          ],
+                        ),
                 ),
               ),
               const SizedBox(height: 16),
 
-              // Lien bas de page : "Déjà un compte ? Se connecter"
+              // Lien vers la connexion
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [

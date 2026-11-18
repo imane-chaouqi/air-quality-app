@@ -21,6 +21,7 @@ class ProfileFormModel {
   final Set<String> sources = {};
   String? aeration;
   bool? moisissures;
+  String? remarques; // <- Ajouté ici pour stocker le champ libre
 
   // ----- Bloc C : personnes vulnérables -----
   final Set<String> personnesVulnerables = {};
@@ -103,5 +104,32 @@ class ProfileFormModel {
     if (numero == 2) return "Personnes vulnérables";
     if (numero == 3) return "Sport et télétravail";
     return "Grand public";
+  }
+
+  // Convertit l'objet du formulaire en Map JSON pour l'API
+  Map<String, dynamic> toJson() {
+    return {
+      'trancheAge': trancheAge,
+      'piece': piece,
+      'situations': situations.toList(),
+      'sources': sources.toList(),
+      'aeration': aeration,
+      'moisissures': moisissures,
+      'remarques': remarques,
+      'categoriesDetectees': detecterCategories(),
+      'niveauSensibilite': niveauSensibilite(),
+      // Blocs optionnels détaillés si tu souhaites les stocker aussi côté back-end :
+      'personnesVulnerables': personnesVulnerables.toList(),
+      'heuresVulnerable': heuresVulnerable,
+      'dortDansPiece': dortDansPiece,
+      'maladieRespVulnerable': maladieRespVulnerable,
+      'activites': activites.toList(),
+      'heuresSport': heuresSport,
+      'symptomes': symptomes.toList(),
+      'diagnostics': diagnostics.toList(),
+      'scoreGina': scoreGina(),
+      'criseSevere': criseSevere,
+      'declencheurs': declencheurs.toList(),
+    };
   }
 }
