@@ -1,116 +1,80 @@
 import 'dart:async';
-
 import 'package:flutter/material.dart';
 
 import '../models/sensor_model.dart';
+import '../services/http_esp32_transport.dart';
 import '../services/iot_service.dart';
 import '../theme/app_colors.dart';
+import '../widgets/animated_dots_loader.dart';
 import '../widgets/app_scaffold.dart';
 import '../widgets/connection_indicator.dart';
-import '../widgets/countdown_progress.dart';
 import '../widgets/custom_button.dart';
 import '../widgets/fade_slide_in.dart';
 import '../widgets/glass_card.dart';
-import '../widgets/reading_sparkline.dart';
 import '../widgets/sensor_status_tile.dart';
 import '../widgets/simulation_banner.dart';
 import 'result_screen.dart';
 
-/// Espace capteurs : connexion à l'ESP32, activation, stabilisation (4 min),
-/// puis passage automatique à l'écran des résultats.
+/// Espace capteurs : connexion à l'ESP32, attente des mesures en direct,
+/// affichage des valeurs reçues et accès à l'évaluation.
 class AnalysisScreen extends StatefulWidget {
   const AnalysisScreen({
     super.key,
-    this.simulation = true,
+    this.simulation = false, // Passé à false par défaut pour utiliser le vrai Back-end
     this.scenario = SimulationScenario.good,
     this.simulateConnectionError = false,
-    this.fastCountdown = false,
     this.transport,
-    this.clock,
   });
 
   final bool simulation;
   final SimulationScenario scenario;
   final bool simulateConnectionError;
-
-  /// Démo uniquement (simulation) : réduit les 4 minutes à 10 secondes.
-  final bool fastCountdown;
-
-  /// Transport réel (à fournir quand le protocole ESP32 sera défini).
   final Esp32Transport? transport;
-
-  /// Horloge injectable (tests uniquement). Par défaut : DateTime.now.
-  final DateTime Function()? clock;
-
-  static const Duration stabilization = Duration(minutes: 4);
 
   @override
   State<AnalysisScreen> createState() => _AnalysisScreenState();
 }
 
-class _AnalysisScreenState extends State<AnalysisScreen>
-    with WidgetsBindingObserver {
-  static const int _maxHistory = 90;
-
+class _AnalysisScreenState extends State<AnalysisScreen> {
   late IotService _service;
   StreamSubscription<ConnectionStatus>? _statusSub;
   StreamSubscription<SensorReading>? _readingSub;
 
-  /// UNIQUE timer du compte à rebours (jamais plus d'un actif à la fois).
-  Timer? _timer;
-
-  /// Identifie la session en cours : une session périmée (retry, dispose)
-  /// ne peut plus démarrer de compte à rebours.
   int _generation = 0;
-
-  late Duration _total;
-  late Duration _remaining;
-
-  /// Instant de fin du compte à rebours. Le temps restant est TOUJOURS
-  /// recalculé à partir de cette échéance (et non décrémenté tick par tick).
-  late DateTime _deadline;
-
   ConnectionStatus _status = ConnectionStatus.disconnected;
   String? _error;
   SensorReading? _latest;
-  final List<double> _pm25History = <double>[];
-  bool _countdownRunning = false;
-  bool _countdownDone = false;
+  bool _isWaitingForData = false;
   bool _linkLost = false;
-  bool _navigated = false;
-
-  DateTime _now() => (widget.clock ?? DateTime.now)();
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addObserver(this);
     _resetState();
     _start();
   }
 
   void _resetState() {
-    _total = widget.simulation && widget.fastCountdown
-        ? const Duration(seconds: 10)
-        : AnalysisScreen.stabilization;
-    _remaining = _total;
-    _countdownRunning = false;
-    _countdownDone = false;
+    _isWaitingForData = false;
     _linkLost = false;
     _latest = null;
     _error = null;
-    _pm25History.clear();
   }
 
-  /// Crée le service et lance connexion + activation.
   Future<void> _start() async {
     final gen = ++_generation;
+    // Si simulation = false et aucun transport fourni, on utilise HttpEsp32Transport
+    final effectiveTransport = widget.simulation
+        ? null
+        : (widget.transport ?? HttpEsp32Transport());
+
     final service = createIotService(
       simulation: widget.simulation,
       scenario: widget.scenario,
       simulateConnectionError: widget.simulateConnectionError,
-      transport: widget.transport,
+      transport: effectiveTransport,
     );
+
     _service = service;
     _status = service.status;
     _statusSub = service.statusStream.listen(_onStatus);
@@ -118,25 +82,29 @@ class _AnalysisScreenState extends State<AnalysisScreen>
       if (!mounted || gen != _generation) return;
       setState(() {
         _latest = r;
-        _pm25History.add(r.pm25);
-        if (_pm25History.length > _maxHistory) _pm25History.removeAt(0);
+        _isWaitingForData = false;
       });
-      _tryFinish();
     });
 
     await service.connect();
-    if (!mounted || gen != _generation || service.status != ConnectionStatus.connected) {
+    if (!mounted ||
+        gen != _generation ||
+        service.status != ConnectionStatus.connected) {
       return;
     }
+
     try {
       await service.requestActivation();
       if (!mounted || gen != _generation) return;
-      _startCountdown();
+      setState(() {
+        _isWaitingForData = true;
+      });
     } catch (e) {
       if (mounted && gen == _generation) {
         setState(() {
           _status = ConnectionStatus.error;
           _error = 'Activation impossible : $e';
+          _isWaitingForData = false;
         });
       }
     }
@@ -144,90 +112,22 @@ class _AnalysisScreenState extends State<AnalysisScreen>
 
   void _onStatus(ConnectionStatus s) {
     if (!mounted) return;
-    // Liaison perdue ou en erreur pendant la stabilisation : on arrête le
-    // compte à rebours ET on l'indique clairement (carte d'erreur + Réessayer).
-    final lost = (s == ConnectionStatus.error || s == ConnectionStatus.disconnected) &&
-        _countdownRunning;
-    if (lost) _stopTimer();
+    final lost =
+        (s == ConnectionStatus.error || s == ConnectionStatus.disconnected) &&
+            (_isWaitingForData || _latest != null);
     setState(() {
       _status = s;
       _error = _service.errorMessage;
       if (lost) {
-        _countdownRunning = false;
+        _isWaitingForData = false;
         _linkLost = true;
-        _error ??= 'La liaison avec le dispositif a été perdue.';
+        _error ??= 'La liaison avec la maquette a été interrompue.';
       }
     });
   }
 
-  // ---------------------------------------------------------------------
-  // COMPTE À REBOURS
-  // ---------------------------------------------------------------------
-
-  void _stopTimer() {
-    _timer?.cancel();
-    _timer = null;
-  }
-
-  /// Démarre le compte à rebours (une seule fois, un seul timer).
-  void _startCountdown() {
-    if (!mounted || _countdownDone || (_timer?.isActive ?? false)) return;
-    _deadline = _now().add(_total);
-    setState(() {
-      _remaining = _total;
-      _countdownRunning = true;
-    });
-    // 250 ms : le texte (secondes entières) change au bon instant même si un
-    // tick est retardé. Le temps restant vient de l'échéance, pas du nombre de ticks.
-    _timer = Timer.periodic(const Duration(milliseconds: 250), (_) => _tick());
-  }
-
-  static int _ceilSeconds(Duration d) => (d.inMilliseconds + 999) ~/ 1000;
-
-  void _tick() {
-    if (!mounted || !_countdownRunning) return;
-    final left = _deadline.difference(_now());
-    if (left <= Duration.zero) {
-      _completeCountdown();
-      return;
-    }
-    final capped = left > _total ? _total : left;
-    final secs = _ceilSeconds(capped);
-    if (secs != _remaining.inSeconds) {
-      setState(() => _remaining = Duration(seconds: secs));
-    }
-  }
-
-  /// Action de fin : exécutée une seule fois (le timer est arrêté et
-  /// `_countdownRunning` passe à false avant toute autre chose).
-  void _completeCountdown() {
-    _stopTimer();
-    setState(() {
-      _remaining = Duration.zero;
-      _countdownRunning = false;
-      _countdownDone = true;
-    });
-    _tryFinish();
-  }
-
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    // Au retour au premier plan (écran déverrouillé, retour dans l'app) on
-    // resynchronise immédiatement avec l'échéance réelle.
-    if (state == AppLifecycleState.resumed) _tick();
-  }
-
-  /// Passe aux résultats quand stabilisation terminée ET mesure disponible.
-  void _tryFinish() {
-    if (_navigated || !mounted || !_countdownDone || _latest == null) return;
-    _navigated = true;
-    Navigator.of(context).pushReplacement(
-      MaterialPageRoute(builder: (_) => ResultScreen(reading: _latest!)),
-    );
-  }
-
   Future<void> _retry() async {
-    _generation++; // invalide toute session en cours
+    _generation++;
     await _teardown();
     if (!mounted) return;
     setState(_resetState);
@@ -235,7 +135,6 @@ class _AnalysisScreenState extends State<AnalysisScreen>
   }
 
   Future<void> _teardown() async {
-    _stopTimer();
     await _statusSub?.cancel();
     await _readingSub?.cancel();
     _statusSub = null;
@@ -245,9 +144,7 @@ class _AnalysisScreenState extends State<AnalysisScreen>
 
   @override
   void dispose() {
-    WidgetsBinding.instance.removeObserver(this);
     _generation++;
-    _stopTimer();
     _statusSub?.cancel();
     _readingSub?.cancel();
     _service.disconnect();
@@ -255,20 +152,27 @@ class _AnalysisScreenState extends State<AnalysisScreen>
     super.dispose();
   }
 
+  // Gestion claire des 4 états demandés
   SensorState get _sensorState {
     if (_status != ConnectionStatus.connected) return SensorState.unknown;
-    return _countdownDone ? SensorState.ready : SensorState.stabilizing;
+    if (_latest == null) return SensorState.stabilizing;
+    return SensorState.ready;
   }
 
   String get _systemText {
-    if (_status == ConnectionStatus.error) return 'Système : erreur de liaison';
+    if (_status == ConnectionStatus.error || _linkLost) {
+      return 'État : Erreur de communication';
+    }
     if (_status == ConnectionStatus.connecting) {
-      return 'Connexion au dispositif en cours…';
+      return 'État : Connexion à la maquette...';
     }
-    if (_status == ConnectionStatus.connected) {
-      return _countdownDone ? 'Système prêt' : 'Système actif · stabilisation en cours';
+    if (_status == ConnectionStatus.connected && _latest == null) {
+      return 'État : En attente des données des capteurs...';
     }
-    return 'Système en attente';
+    if (_status == ConnectionStatus.connected && _latest != null) {
+      return 'État : Données reçues en temps réel';
+    }
+    return 'État : En attente';
   }
 
   String _v(double? v, int digits) => v == null ? '—' : v.toStringAsFixed(digits);
@@ -278,10 +182,12 @@ class _AnalysisScreenState extends State<AnalysisScreen>
     final p = AppPalette.of(context);
     final failed = _status == ConnectionStatus.error || _linkLost;
     final r = _latest;
-    final provisional = _sensorState == SensorState.stabilizing && r != null;
+    final hasData = r != null && !failed;
 
     final items = <Widget>[
       if (widget.simulation) const SimulationBanner(),
+
+      // 1. Carte d'état de la liaison avec la maquette
       GlassCard(
         strength: GlassStrength.strong,
         padding: const EdgeInsets.all(14),
@@ -298,62 +204,76 @@ class _AnalysisScreenState extends State<AnalysisScreen>
           ),
           const SizedBox(width: 12),
           Expanded(
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              const Text('Liaison avec l’ESP32',
-                  style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15.5)),
-              Text(_systemText,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(fontSize: 12, color: p.muted)),
-            ]),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('Liaison avec la maquette ESP32',
+                    style:
+                        TextStyle(fontWeight: FontWeight.w700, fontSize: 15.5)),
+                const SizedBox(height: 2),
+                Text(_systemText,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(fontSize: 12, color: p.muted)),
+              ],
+            ),
           ),
           const SizedBox(width: 8),
           ConnectionIndicator(status: _status),
         ]),
       ),
+
+      // 2. État Erreur de communication
       if (failed)
         GlassCard(
           tint: AppColors.alertRed,
-          padding: const EdgeInsets.all(14),
+          padding: const EdgeInsets.all(16),
           child: Column(children: [
             Row(children: [
-              const Icon(Icons.error_outline, color: AppColors.alertRed, size: 26),
-              const SizedBox(width: 10),
+              const Icon(Icons.error_outline,
+                  color: AppColors.alertRed, size: 28),
+              const SizedBox(width: 12),
               Expanded(
-                child: Text(_error ?? 'Erreur de connexion.',
-                    style: const TextStyle(fontSize: 13.5, height: 1.3)),
+                child: Text(
+                  _error ?? 'Erreur de communication avec la maquette.',
+                  style: const TextStyle(fontSize: 13.5, height: 1.35),
+                ),
               ),
             ]),
-            const SizedBox(height: 12),
-            CustomButton(label: 'Réessayer', icon: Icons.refresh, onPressed: _retry),
+            const SizedBox(height: 14),
+            CustomButton(
+                label: 'Réessayer la connexion',
+                icon: Icons.refresh,
+                onPressed: _retry),
           ]),
         ),
-      if (!failed)
+
+      // 3. État Connexion / Attente des données (Trois points animés + "Mesures en cours...")
+      if (!failed && !hasData)
         GlassCard(
           strength: GlassStrength.strong,
           radius: 24,
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
           child: Column(children: [
-            CountdownProgress(
-                remaining: _remaining,
-                total: _total,
-                active: _countdownRunning || _countdownDone),
-            const SizedBox(height: 12),
+            AnimatedDotsLoader(
+              text: _status == ConnectionStatus.connecting
+                  ? 'Connexion à la maquette...'
+                  : 'Mesures en cours...',
+            ),
+            const SizedBox(height: 8),
             Text(
-              _countdownDone && _latest == null
-                  ? 'Stabilisation terminée, en attente de la première mesure…'
-                  : _status == ConnectionStatus.connected
-                      ? 'Merci de patienter : les résultats s’afficheront automatiquement.'
-                      : 'Connexion au dispositif en cours…',
+              'Acquisition des données du PMS5003 et du DHT22.',
               textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 12.5, color: p.muted, height: 1.3),
+              style: TextStyle(fontSize: 12.5, color: p.muted),
             ),
           ]),
         ),
+
+      // 4. Affichage amélioré des mesures reçues (Capteurs PMS5003 & DHT22)
       SensorStatusTile(
         info: SensorInfo.pms5003,
         state: _sensorState,
-        provisional: provisional,
+        provisional: false,
         metrics: [
           SensorMetric('PM2.5', _v(r?.pm25, 1), 'µg/m³'),
           SensorMetric('PM10', _v(r?.pm10, 1), 'µg/m³'),
@@ -362,36 +282,23 @@ class _AnalysisScreenState extends State<AnalysisScreen>
       SensorStatusTile(
         info: SensorInfo.dht22,
         state: _sensorState,
-        provisional: provisional,
+        provisional: false,
         metrics: [
           SensorMetric('Température', _v(r?.temperature, 1), '°C'),
           SensorMetric('Humidité', _v(r?.humidity, 0), '%'),
         ],
       ),
-      if (_pm25History.length >= 2)
-        GlassCard(
-          padding: const EdgeInsets.fromLTRB(14, 12, 14, 10),
-          radius: 20,
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Row(children: [
-              Icon(Icons.show_chart, size: 20, color: p.accentText),
-              const SizedBox(width: 8),
-              const Expanded(
-                child: Text('Évolution des PM2.5',
-                    style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14.5)),
-              ),
-              Text('${_pm25History.length} mesures',
-                  style: TextStyle(fontSize: 12, color: p.muted)),
-            ]),
-            const SizedBox(height: 8),
-            ReadingSparkline(values: _pm25History, color: p.accent),
-          ]),
-        ),
-      if (provisional || r == null)
-        Text(
-          'État de fonctionnement estimé par l’application.',
-          textAlign: TextAlign.center,
-          style: TextStyle(fontSize: 11.5, color: p.muted),
+
+      // Bouton d'accès direct à l'analyse complète dès que les mesures sont reçues
+      if (hasData)
+        CustomButton(
+          label: 'Voir le diagnostic complet',
+          icon: Icons.analytics_outlined,
+          onPressed: () {
+            Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => ResultScreen(reading: r)),
+            );
+          },
         ),
     ];
 
