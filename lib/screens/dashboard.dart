@@ -101,7 +101,7 @@ class DashboardScreen extends StatelessWidget {
       ),
       tile(Icons.sensors, 'Espace capteurs', 'Mesure en mode simulation',
           () => Navigator.of(context).push(MaterialPageRoute(
-              builder: (_) => const AnalysisScreen(simulation: true)))),
+              builder: (_) => const AnalysisScreen(simulation: false)))),
       tile(Icons.mic_none, 'Voice', 'Bientôt disponible',
           () => Navigator.of(context)
               .push(MaterialPageRoute(builder: (_) => const VoiceScreen()))),

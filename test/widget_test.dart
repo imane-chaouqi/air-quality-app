@@ -62,8 +62,7 @@ void main() {
     var now = DateTime(2026, 1, 1, 12);
     await tester.pumpWidget(_app(AnalysisScreen(
       simulation: true,
-      fastCountdown: true, // 10 s
-      clock: () => now,
+      
     )));
 
     // Connexion simulée (2 s) puis activation : le compte à rebours démarre.
