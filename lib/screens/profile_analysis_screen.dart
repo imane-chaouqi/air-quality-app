@@ -2,12 +2,13 @@ import 'package:flutter/material.dart';
 import '../theme/app_colors.dart';
 import '../theme/profile_form_model.dart';
 import '../widgets/airsense_widgets.dart';
+import '../widgets/app_drawer.dart'; // Importation du menu de profil et de déconnexion
 import 'analysis_screen.dart';
 
 // Page d'analyse : profil, analyse courte, comment l'application aide, sensibilité.
 // Les seuils et recommandations seront affichés dans la page des mesures.
 class ProfileAnalysisScreen extends StatelessWidget {
-    final ProfileFormModel profil;
+  final ProfileFormModel profil;
   final String userName;
   final String userEmail;
 
@@ -195,6 +196,19 @@ class ProfileAnalysisScreen extends StatelessWidget {
 
     return Scaffold(
       backgroundColor: AppColors.fond,
+      // Barre d'application supérieure pour afficher le bouton d'accès au menu latéral
+      appBar: AppBar(
+        title: const Text('Mon Profil & Analyse'),
+        backgroundColor: AppColors.turquoiseFonce,
+        foregroundColor: Colors.white,
+        elevation: 0,
+      ),
+      // Intégration du tiroir latéral (Drawer) pour voir les infos et se déconnecter
+      drawer: AppDrawer(
+        userName: userName,
+        userEmail: userEmail,
+        currentProfil: profil,
+      ),
       body: Column(
         children: [
           Expanded(
@@ -210,8 +224,8 @@ class ProfileAnalysisScreen extends StatelessWidget {
                       children: [
                         const Text('Analyse et orientation', style: styleTitrePage),
                         const SizedBox(height: 6),
-                        const Text(
-                          'Voici ce que nous avons compris de votre situation.',
+                        Text(
+                          'Bienvenue $userName, voici ce que nous avons compris de votre situation.',
                           style: styleSousTitre,
                         ),
 
@@ -347,7 +361,7 @@ class ProfileAnalysisScreen extends StatelessWidget {
                   flex: 3,
                   child: BoutonPrincipal(
                     texte: 'Continuer',
-                      onPressed: () {
+                    onPressed: () {
                       Navigator.push(
                         context,
                         MaterialPageRoute(builder: (_) => const AnalysisScreen()),
@@ -362,4 +376,4 @@ class ProfileAnalysisScreen extends StatelessWidget {
       ),
     );
   }
-}
+}   
