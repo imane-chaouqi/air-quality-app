@@ -28,6 +28,70 @@ class _LoginScreenState extends State<LoginScreen> {
     super.dispose();
   }
 
+  ProfileFormModel _construireProfilDepuisMap(Map<String, dynamic>? data) {
+    final profil = ProfileFormModel();
+    if (data == null) return profil;
+
+    profil.trancheAge = data['trancheAge'] as String?;
+    profil.piece = data['piece'] as String?;
+
+    if (data['situations'] is List) {
+      profil.situations
+        ..clear()
+        ..addAll(List<String>.from(data['situations']));
+    }
+    if (data['sources'] is List) {
+      profil.sources
+        ..clear()
+        ..addAll(List<String>.from(data['sources']));
+    }
+
+    profil.aeration = data['aeration'] as String?;
+    profil.moisissures = data['moisissures'] as bool?;
+    profil.remarques = data['remarques'] as String? ?? '';
+
+    if (data['personnesVulnerables'] is List) {
+      profil.personnesVulnerables
+        ..clear()
+        ..addAll(List<String>.from(data['personnesVulnerables']));
+    }
+    profil.heuresVulnerable = data['heuresVulnerable'] as String?;
+    profil.dortDansPiece = data['dortDansPiece'] as bool?;
+    profil.maladieRespVulnerable = data['maladieRespVulnerable'] as bool?;
+
+    if (data['activites'] is List) {
+      profil.activites
+        ..clear()
+        ..addAll(List<String>.from(data['activites']));
+    }
+    profil.heuresSport = data['heuresSport'] as String?;
+
+    if (data['symptomes'] is List) {
+      profil.symptomes
+        ..clear()
+        ..addAll(List<String>.from(data['symptomes']));
+    }
+    if (data['diagnostics'] is List) {
+      profil.diagnostics
+        ..clear()
+        ..addAll(List<String>.from(data['diagnostics']));
+    }
+
+    profil.ginaSymptomesJour = data['ginaSymptomesJour'] as bool?;
+    profil.ginaReveilNuit = data['ginaReveilNuit'] as bool?;
+    profil.ginaMedicamentSecours = data['ginaMedicamentSecours'] as bool?;
+    profil.ginaLimitation = data['ginaLimitation'] as bool?;
+    profil.criseSevere = data['criseSevere'] as bool?;
+
+    if (data['declencheurs'] is List) {
+      profil.declencheurs
+        ..clear()
+        ..addAll(List<String>.from(data['declencheurs']));
+    }
+
+    return profil;
+  }
+
   void _handleLogin() async {
     String email = _emailController.text.trim();
     String password = _passwordController.text;
@@ -47,9 +111,9 @@ class _LoginScreenState extends State<LoginScreen> {
       _isLoading = true;
     });
 
-    bool success = await ApiService.loginUser(email, password);
+    final loginResult = await ApiService.loginUser(email, password);
 
-    if (!success) {
+    if (loginResult == null) {
       if (!mounted) return;
       setState(() {
         _isLoading = false;
@@ -63,12 +127,27 @@ class _LoginScreenState extends State<LoginScreen> {
       return;
     }
 
-    String name = email.split('@')[0];
+    final Map<String, dynamic>? rawProfil =
+        loginResult['profil'] is Map<String, dynamic>
+            ? Map<String, dynamic>.from(loginResult['profil'])
+            : await ApiService.getProfile(email);
+
+    final Map<String, dynamic>? userMap =
+        loginResult['user'] is Map<String, dynamic>
+            ? Map<String, dynamic>.from(loginResult['user'])
+            : null;
+
+    String name = (userMap?['name'] as String?)?.trim().isNotEmpty == true
+        ? (userMap!['name'] as String).trim()
+        : (rawProfil?['name'] as String?)?.trim().isNotEmpty == true
+            ? (rawProfil!['name'] as String).trim()
+            : email.split('@')[0];
+
     if (name.isNotEmpty) {
       name = name[0].toUpperCase() + name.substring(1);
     }
 
-    await ApiService.getProfile(email);
+    final ProfileFormModel userProfil = _construireProfilDepuisMap(rawProfil);
 
     if (!mounted) return;
 
@@ -82,8 +161,6 @@ class _LoginScreenState extends State<LoginScreen> {
         backgroundColor: Colors.green,
       ),
     );
-
-    ProfileFormModel userProfil = ProfileFormModel(); 
 
     Navigator.pushAndRemoveUntil(
       context,
@@ -107,7 +184,7 @@ class _LoginScreenState extends State<LoginScreen> {
     bool isEmailSent = false;
     bool canReset = false;
     bool isDialogLoading = false;
-    String statusMessage = ""; 
+    String statusMessage = "";
 
     showDialog(
       context: context,
@@ -146,13 +223,21 @@ class _LoginScreenState extends State<LoginScreen> {
                         const SizedBox(height: 12),
                         Text(
                           statusMessage,
-                          style: const TextStyle(fontSize: 13, color: Colors.redAccent, fontWeight: FontWeight.bold),
+                          style: const TextStyle(
+                            fontSize: 13,
+                            color: Colors.redAccent,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                       ]
                     ] else ...[
                       const Text(
                         "Validation confirmée par le serveur ! Définissez votre nouveau mot de passe :",
-                        style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.green),
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.green,
+                        ),
                       ),
                       const SizedBox(height: 12),
                       TextField(
@@ -198,7 +283,6 @@ class _LoginScreenState extends State<LoginScreen> {
                               return;
                             }
 
-                            // Sauvegarde sécurisée de l'e-mail
                             setState(() {
                               _resetTargetEmail = inputVal;
                             });
@@ -216,7 +300,11 @@ class _LoginScreenState extends State<LoginScreen> {
                             }
                           },
                     child: isDialogLoading
-                        ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                          )
                         : const Text('Envoyer l’e-mail'),
                   ),
                 if (isEmailSent && !canReset)
@@ -230,11 +318,11 @@ class _LoginScreenState extends State<LoginScreen> {
                         : () async {
                             setDialogState(() => isDialogLoading = true);
                             try {
-                              String emailToCheck = _resetTargetEmail.isNotEmpty 
-                                  ? _resetTargetEmail 
+                              String emailToCheck = _resetTargetEmail.isNotEmpty
+                                  ? _resetTargetEmail
                                   : "malakmahfoudi69@gmail.com";
-                              
-                              final url = 'http://localhost:3000/api/check-reset-status?email=$emailToCheck';
+
+                              final url = '${ApiService.baseUrl}/check-reset-status?email=${Uri.encodeComponent(emailToCheck)}';
                               print("Appel de l'URL : $url");
 
                               final response = await http.get(Uri.parse(url));
@@ -243,22 +331,31 @@ class _LoginScreenState extends State<LoginScreen> {
                               final data = jsonDecode(response.body);
                               bool serverCanReset = data['canResetPassword'] == true;
 
-                              // On valide l'affichage des champs de réinitialisation
-                              setDialogState(() {
-                                _resetTargetEmail = emailToCheck;
-                                canReset = true; 
-                              });
+                              if (serverCanReset) {
+                                setDialogState(() {
+                                  _resetTargetEmail = emailToCheck;
+                                  canReset = true;
+                                  statusMessage = "";
+                                });
+                              } else {
+                                setDialogState(() {
+                                  statusMessage = "Confirmation non encore reçue. Cliquez sur 'OUI' dans votre e-mail puis réessayez.";
+                                });
+                              }
                             } catch (e) {
                               setDialogState(() {
-                                _resetTargetEmail = "malakmahfoudi69@gmail.com";
-                                canReset = true;
+                                statusMessage = "Erreur lors de la vérification du statut.";
                               });
                             } finally {
                               setDialogState(() => isDialogLoading = false);
                             }
                           },
                     child: isDialogLoading
-                        ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                          )
                         : const Text("Vérifier le statut"),
                   ),
                 if (canReset)
@@ -281,7 +378,11 @@ class _LoginScreenState extends State<LoginScreen> {
                             }
 
                             setDialogState(() => isDialogLoading = true);
-                            var result = await ApiService.resetPassword(_resetTargetEmail, newPass, confirmPass);
+                            var result = await ApiService.resetPassword(
+                              _resetTargetEmail,
+                              newPass,
+                              confirmPass,
+                            );
                             setDialogState(() => isDialogLoading = false);
 
                             if (!dialogContext.mounted) return;
@@ -289,13 +390,21 @@ class _LoginScreenState extends State<LoginScreen> {
 
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(
-                                content: Text(result['success'] == true ? 'Mot de passe réinitialisé avec succès ! Connectez-vous.' : (result['error'] ?? 'Erreur')),
+                                content: Text(
+                                  result['success'] == true
+                                      ? 'Mot de passe réinitialisé avec succès ! Connectez-vous.'
+                                      : (result['error'] ?? 'Erreur'),
+                                ),
                                 backgroundColor: result['success'] == true ? Colors.green : Colors.red,
                               ),
                             );
                           },
                     child: isDialogLoading
-                        ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                          )
                         : const Text('Valider le nouveau mot de passe'),
                   ),
               ],
@@ -327,7 +436,11 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
               ],
             ),
-            child: const Icon(Icons.arrow_back_ios_new, color: AppColors.turquoiseFonce, size: 16),
+            child: const Icon(
+              Icons.arrow_back_ios_new,
+              color: AppColors.turquoiseFonce,
+              size: 16,
+            ),
           ),
           onPressed: () => Navigator.pop(context),
         ),
@@ -430,7 +543,11 @@ class _LoginScreenState extends State<LoginScreen> {
                       ? const CircularProgressIndicator(color: Colors.white)
                       : const Text(
                           'Se connecter',
-                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Colors.white),
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.white,
+                          ),
                         ),
                 ),
               ),
