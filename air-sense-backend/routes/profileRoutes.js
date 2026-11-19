@@ -1,8 +1,10 @@
 const express = require('express');
 const router = express.Router();
 const bcrypt = require('bcryptjs');
-const Profile = require('../models/Profile');
+const profileStore = require('../models/Profile');
 const nodemailer = require('nodemailer');
+
+const getProfileModel = () => profileStore.getProfileModel();
 
 // 1. INSCRIPTION (Register)
 router.post('/register', async (req, res) => {
@@ -15,6 +17,7 @@ router.post('/register', async (req, res) => {
     }
 
     // Vérifier si l'utilisateur existe déjà
+    const Profile = getProfileModel();
     const existingUser = await Profile.findOne({ email });
     if (existingUser) {
       return res.status(400).json({ success: false, error: "Cet email est déjà utilisé." });
@@ -45,6 +48,7 @@ router.post('/login', async (req, res) => {
     const { email, password } = req.body;
 
     // Trouver l'utilisateur par son email
+    const Profile = getProfileModel();
     const user = await Profile.findOne({ email });
     if (!user) {
       return res.status(404).json({ success: false, error: "Email ou mot de passe incorrect." });
@@ -66,6 +70,7 @@ router.post('/login', async (req, res) => {
 router.post('/profile', async (req, res) => {
   try {
     const { email, profil } = req.body;
+    const Profile = getProfileModel();
     const updatedProfile = await Profile.findOneAndUpdate(
       { email },
       { ...profil },
@@ -80,6 +85,7 @@ router.post('/profile', async (req, res) => {
 // 4. Récupérer le profil par email
 router.get('/profile/:email', async (req, res) => {
   try {
+    const Profile = getProfileModel();
     const profile = await Profile.findOne({ email: req.params.email });
     if (!profile) return res.status(404).json({ message: 'Profil non trouvé' });
     res.status(200).json(profile);
@@ -96,6 +102,7 @@ router.post('/forgot-password', async (req, res) => {
     console.log("Requête forgot-password reçue pour l'e-mail :", email);
 
     // Vérification si l'utilisateur existe dans la base de données
+    const Profile = getProfileModel();
     const user = await Profile.findOne({ email });
     
     if (!user) {
@@ -142,6 +149,7 @@ router.get('/confirm-reset', async (req, res) => {
   try {
     const { email, choice } = req.query;
 
+    const Profile = getProfileModel();
     const user = await Profile.findOne({ email });
     if (!user) {
       return res.status(404).send("<h1>Erreur</h1><p>Utilisateur non trouvé.</p>");
@@ -175,6 +183,7 @@ router.get('/confirm-reset', async (req, res) => {
 router.get('/check-reset-status', async (req, res) => {
   try {
     const { email } = req.query;
+    const Profile = getProfileModel();
     const user = await Profile.findOne({ email });
     if (!user) {
       return res.status(404).json({ success: false, error: "Utilisateur non trouvé." });
@@ -199,6 +208,7 @@ router.post('/reset-password', async (req, res) => {
     }
 
     // Trouver l'utilisateur par son email
+    const Profile = getProfileModel();
     const user = await Profile.findOne({ email });
     if (!user) {
       return res.status(404).json({ success: false, error: "Utilisateur non trouvé." });

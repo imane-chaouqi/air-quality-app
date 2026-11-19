@@ -6,7 +6,7 @@ import 'iot_service.dart';
 
 class HttpEsp32Transport implements Esp32Transport {
   HttpEsp32Transport({
-    this.baseUrl = 'http://localhost:5000/api/measures',
+    this.baseUrl = 'http://localhost:3000/api/measures',
   });
 
   final String baseUrl;

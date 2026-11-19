@@ -52,7 +52,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final effectiveTransport = widget.simulation
         ? null
         : (widget.transport ??
-            HttpEsp32Transport(baseUrl: 'http://localhost:5000/api/measures'));
+            HttpEsp32Transport(baseUrl: 'http://localhost:3000/api/measures'));
 
     final service = createIotService(
       simulation: widget.simulation,

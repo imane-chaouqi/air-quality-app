@@ -1,8 +1,9 @@
 const mongoose = require('mongoose');
-
 const profileSchema = new mongoose.Schema({
   email: { type: String, required: true, unique: true },
   password: { type: String, required: true }, // Champ pour stocker le mot de passe haché
+  name: String,
+  canResetPassword: { type: Boolean, default: false },
   trancheAge: String,
   piece: String,
   situations: [String],
@@ -26,5 +27,18 @@ const profileSchema = new mongoose.Schema({
   declencheurs: [String],
 }, { timestamps: true });
 
-// Utilisation de la collection 'profiles' explicitement
-module.exports = mongoose.models.Profile || mongoose.model('Profile', profileSchema, 'profiles');
+let profileModel = null;
+
+function configure(connection) {
+  profileModel = connection.model('Profile', profileSchema, 'profiles');
+  return profileModel;
+}
+
+function getProfileModel() {
+  if (!profileModel) {
+    throw new Error('MongoDB des profils/authentification non initialisé.');
+  }
+  return profileModel;
+}
+
+module.exports = { configure, getProfileModel };

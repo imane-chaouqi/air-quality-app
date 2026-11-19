@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
 import '../theme/app_colors.dart';
 import '../services/api_service.dart';
 import 'login_screen.dart';
@@ -18,7 +19,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final TextEditingController _prenomController = TextEditingController();
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
-  final TextEditingController _confirmPasswordController = TextEditingController();
+  final TextEditingController _confirmPasswordController =
+      TextEditingController();
 
   bool _isLoading = false;
 
@@ -40,7 +42,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
     String confirmPassword = _confirmPasswordController.text;
 
     // 1. Vérification des champs vides
-    if (nom.isEmpty || prenom.isEmpty || email.isEmpty || password.isEmpty || confirmPassword.isEmpty) {
+    if (nom.isEmpty ||
+        prenom.isEmpty ||
+        email.isEmpty ||
+        password.isEmpty ||
+        confirmPassword.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Veuillez remplir tous les champs svp.'),
@@ -112,17 +118,17 @@ class _RegisterScreenState extends State<RegisterScreen> {
       Navigator.pushAndRemoveUntil(
         context,
         MaterialPageRoute(
-          builder: (_) => FormScreen(
-            userName: '$prenom $nom',
-            userEmail: email,
-          ),
+          builder: (_) =>
+              FormScreen(userName: '$prenom $nom', userEmail: email),
         ),
         (route) => false,
       );
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text("Erreur lors de l'inscription (Cet email existe peut-être déjà)."),
+          content: Text(
+            "Erreur lors de l'inscription (Cet email existe peut-être déjà).",
+          ),
           backgroundColor: Colors.redAccent,
         ),
       );
@@ -150,7 +156,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 ),
               ],
             ),
-            child: const Icon(Icons.arrow_back_ios_new, color: AppColors.primaryDark, size: 16),
+            child: const Icon(
+              Icons.arrow_back_ios_new,
+              color: AppColors.primaryDark,
+              size: 16,
+            ),
           ),
           onPressed: () => Navigator.pop(context),
         ),
@@ -179,9 +189,16 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       decoration: BoxDecoration(
                         color: AppColors.softTealBg,
                         shape: BoxShape.circle,
-                        border: Border.all(color: AppColors.primaryTeal.withOpacity(0.3), width: 1.5),
+                        border: Border.all(
+                          color: AppColors.primaryTeal.withOpacity(0.3),
+                          width: 1.5,
+                        ),
                       ),
-                      child: const Icon(Icons.person_outline, size: 40, color: AppColors.primaryTeal),
+                      child: const Icon(
+                        Icons.person_outline,
+                        size: 40,
+                        color: AppColors.primaryTeal,
+                      ),
                     ),
                   ],
                 ),
@@ -261,32 +278,49 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     backgroundColor: Colors.transparent,
                     shadowColor: Colors.transparent,
                     padding: const EdgeInsets.symmetric(vertical: 16),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(30),
+                    ),
                   ),
                   child: _isLoading
                       ? const CircularProgressIndicator(color: Colors.white)
-                      : const Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Text(
-                              "S'inscrire",
-                              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Colors.white),
-                            ),
-                            SizedBox(width: 8),
-                            Icon(Icons.arrow_forward, color: Colors.white, size: 18),
-                          ],
+                      : const FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text(
+                                "S'inscrire",
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.white,
+                                ),
+                              ),
+                              SizedBox(width: 8),
+                              Icon(
+                                Icons.arrow_forward,
+                                color: Colors.white,
+                                size: 18,
+                              ),
+                            ],
+                          ),
                         ),
                 ),
               ),
               const SizedBox(height: 16),
 
               // Lien vers la connexion
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
+              Wrap(
+                crossAxisAlignment: WrapCrossAlignment.center,
+                alignment: WrapAlignment.center,
                 children: [
                   const Text(
                     'Déjà un compte ? ',
-                    style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: AppColors.textSecondary,
+                    ),
                   ),
                   GestureDetector(
                     onTap: () {
@@ -324,7 +358,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
       obscureText: isPassword,
       decoration: InputDecoration(
         hintText: hint,
-        hintStyle: const TextStyle(color: AppColors.textSecondary, fontSize: 14),
+        hintStyle: const TextStyle(
+          color: AppColors.textSecondary,
+          fontSize: 14,
+        ),
         prefixIcon: Icon(icon, color: AppColors.primaryTeal, size: 20),
         filled: true,
         fillColor: AppColors.subCardBackground,
@@ -332,7 +369,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
           borderRadius: BorderRadius.circular(16),
           borderSide: BorderSide.none,
         ),
-        contentPadding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+        contentPadding: const EdgeInsets.symmetric(
+          vertical: 14,
+          horizontal: 16,
+        ),
       ),
     );
   }
