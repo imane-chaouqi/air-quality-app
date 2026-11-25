@@ -1,3 +1,4 @@
+
 require('dotenv').config();
 const express = require('express');
 const mongoose = require('mongoose');
@@ -14,11 +15,21 @@ app.use(express.json());
 // Routes API
 app.use('/api/measures', measuresRoutes);
 
-// Connexion MongoDB Atlas puis démarrage du serveur et de MQTT
-mongoose
-  .connect(process.env.MONGODB_URI)
-  .then(() => {
-    console.log('[MongoDB] Connecté avec succès à Atlas');
+
+// MongoDB dédiée aux profils/authentification
+const authUri = process.env.MONGO_URI_AUTH;
+
+if (!authUri) {
+  console.error('[MongoDB] MONGO_URI_AUTH est requis pour les profils/authentification.');
+  process.exit(1);
+}
+
+
+Promise.resolve(mongoose.createConnection(authUri, { family: 4 }).asPromise())
+  .then((authConnection) => {
+    
+    console.log('[MongoDB] Profils/authentification connectés à Atlas');
+
     initMqtt();
     app.listen(PORT, () => {
       console.log(`[Serveur] API AirSense démarrée sur http://localhost:${PORT}`);

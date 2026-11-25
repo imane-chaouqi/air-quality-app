@@ -1,7 +1,21 @@
 const express = require('express');
 const router = express.Router();
-const Measure = require('../models/Measure');
-const { sendActivationCommand, getDeviceHealth } = require('../services/mqttClient');
+
+const {
+  sendActivationCommand,
+  getDeviceHealth,
+  getLatestMqttReading,
+} = require('../services/mqttClient');
+
+router.post('/test-inject', (req, res) => {
+  injectTestMeasure({
+    temperature: 24.5 + Math.random(),
+    humidity: 50,
+    pm25: 12 + Math.random() * 5,
+    pm10: 20,
+  });
+  res.json({ ok: true });
+});
 
 // 1. Vérifier l'état de connexion avec la maquette / le broker
 router.get('/status', (req, res) => {
@@ -22,28 +36,12 @@ router.post('/activate', (req, res) => {
 
 // 3. Récupérer la toute dernière mesure enregistrée
 router.get('/latest', async (req, res) => {
-  try {
-    const latest = await Measure.findOne().sort({ timestamp: -1 });
-    if (!latest) {
-      return res.status(404).json({ error: 'Aucune mesure disponible.' });
-    }
-    res.json(latest);
-  } catch (err) {
-    res.status(500).json({ error: 'Erreur serveur lors de la récupération.' });
+  // TEMP TEST SANS MONGODB : lecture directe de la derniere mesure en memoire.
+  const latest = getLatestMqttReading();
+  if (!latest) {
+    return res.status(200).json({ received: false, testMode: true });
   }
-});
-
-// 4. Récupérer l'historique des mesures (par défaut les 50 dernières)
-router.get('/history', async (req, res) => {
-  try {
-    const limit = parseInt(req.query.limit, 10) || 50;
-    const history = await Measure.find()
-      .sort({ timestamp: -1 })
-      .limit(limit);
-    res.json(history);
-  } catch (err) {
-    res.status(500).json({ error: 'Erreur lors de la récupération de l’historique.' });
-  }
+  res.json(latest);
 });
 
 module.exports = router;

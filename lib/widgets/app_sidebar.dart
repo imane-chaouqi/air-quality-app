@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import '../theme/app_colors.dart';
 import '../screens/dashboard_screen.dart';
-import '../screens/history_screen.dart';
 import '../screens/visualization_screen.dart';
 import '../screens/profile_screen.dart';
 import '../screens/home_screen.dart';
@@ -79,25 +78,6 @@ class AppSidebar extends StatelessWidget {
                       },
                     ),
                     const SizedBox(height: 10),
-                    _buildNavItem(
-                      context,
-                      icon: Icons.history_rounded,
-                      label: 'Historique',
-                      isActive: currentRoute == 'historique',
-                      onTap: () {
-                        if (currentRoute != 'historique') {
-                          Navigator.pushReplacement(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => HistoryScreen(
-                                userName: userName,
-                                userEmail: userEmail,
-                              ),
-                            ),
-                          );
-                        }
-                      },
-                    ),
                     const SizedBox(height: 10),
                     _buildNavItem(
                       context,
