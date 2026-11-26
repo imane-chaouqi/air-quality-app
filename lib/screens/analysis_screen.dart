@@ -24,12 +24,14 @@ class AnalysisScreen extends StatefulWidget {
     this.scenario = SimulationScenario.good,
     this.simulateConnectionError = false,
     this.transport,
+    this.categories,
   });
 
   final bool simulation;
   final SimulationScenario scenario;
   final bool simulateConnectionError;
   final Esp32Transport? transport;
+  final List<int>? categories; // catégories de l'utilisateur (1 à 4)
 
   @override
   State<AnalysisScreen> createState() => _AnalysisScreenState();
@@ -262,7 +264,7 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
             ),
             const SizedBox(height: 8),
             Text(
-              'Acquisition des données du PMS5003 et du DHT22.',
+              'Acquisition des données du PMS5003, de l’AHT et de l’ENS160.',
               textAlign: TextAlign.center,
               style: TextStyle(fontSize: 12.5, color: p.muted),
             ),
@@ -288,7 +290,20 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
           SensorMetric('Humidité', _v(r?.humidity, 0), '%'),
         ],
       ),
-
+      
+      SensorStatusTile(
+        info: SensorInfo.ens160,
+        state: _sensorState,
+        provisional: false,
+        metrics: [
+          SensorMetric('CO₂ estimé (eCO2)', _v(r?.eco2, 0), 'ppm'),
+          SensorMetric('TVOC', _v(r?.tvoc, 0), 'ppb'),
+        ],
+      ),
+      if (hasData)
+        Text(AirQualityReferences.gasDisclaimer,
+            style: TextStyle(fontSize: 11.5, color: p.muted, height: 1.35)),
+      
       // Bouton d'accès direct à l'analyse complète dès que les mesures sont reçues
       if (hasData)
         CustomButton(
@@ -296,7 +311,7 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
           icon: Icons.analytics_outlined,
           onPressed: () {
             Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => ResultScreen(reading: r)),
+              MaterialPageRoute(builder: (_) => ResultScreen(reading: r, categories: widget.categories)),
             );
           },
         ),

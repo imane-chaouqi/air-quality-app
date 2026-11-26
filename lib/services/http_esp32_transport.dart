@@ -89,11 +89,20 @@ class HttpEsp32Transport implements Esp32Transport {
           throw const FormatException('Champ de mesure MQTT absent');
         }
 
+        double? optionalNumber(String key) {
+          final value = json[key];
+          if (value is num) return value.toDouble();
+          if (value is String) return double.tryParse(value);
+          return null;
+        }
+
         final reading = SensorReading(
           temperature: mqttNumber('temperature', ['temp', 'temperature_c']),
           humidity: mqttNumber('humidity', ['hum']),
           pm25: mqttNumber('pm25', ['pm2.5', 'pm2_5']),
           pm10: mqttNumber('pm10'),
+          tvoc: optionalNumber('tvoc'),
+          eco2: optionalNumber('eco2'),
           timestamp:
               DateTime.tryParse(json['timestamp']?.toString() ?? '') ??
               DateTime.now(),

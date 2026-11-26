@@ -51,10 +51,29 @@ class AirQualityReferences {
   static const double pm10Interim4 = 50;
   static const double pm25Interim2 = 50;
   static const double pm10Interim2 = 100;
+  // Valeurs ANNUELLES OMS 2021 : limite de la zone « bon » pour les profils sensibles.
+  static const double pm25Annual = 5;
+  static const double pm10Annual = 15;
 
   // Plages de confort INDICATIVES propres à l'application (pas des valeurs OMS).
   static const double tempMin = 18, tempMax = 27;
   static const double humMin = 30, humMax = 60;
+  
+  // CO2 estimé (eCO2, ppm) : repères de l'agence allemande de l'environnement
+  // (< 1000 : bon ; 1000 à 2000 : modéré ; > 2000 : mauvais). Valeurs indicatives.
+  static const double eco2Good = 1000;
+  static const double eco2Moderate = 2000;
+
+  // TVOC (ppb) : repères provisoires, à confirmer dans la fiche technique du capteur.
+  static const double tvocGood = 220;
+  static const double tvocModerate = 660;
+  static const double tvocPoor = 2200;
+
+  static const String gasDisclaimer =
+      'Le CO₂ affiché (eCO2) est une ESTIMATION calculée par le capteur à partir '
+      'des gaz présents dans l’air, pas une mesure directe du CO₂. Le TVOC '
+      'représente l’ensemble des composés organiques volatils. Ces valeurs sont '
+      'indicatives et peuvent être imprécises juste après l’allumage du capteur.';
 
   static const String disclaimer =
       'Les valeurs de référence OMS 2021 citées sont des moyennes sur 24 heures, '
@@ -72,12 +91,16 @@ class SensorReading {
     required this.pm10,
     required this.timestamp,
     required this.isSimulated,
+    this.tvoc,
+    this.eco2,
   });
 
-  final double temperature; // °C (DHT22)
-  final double humidity; // % (DHT22)
+  final double temperature; // °C (AHT)
+  final double humidity; // % (AHT)
   final double pm25; // µg/m³ (PMS5003)
   final double pm10; // µg/m³ (PMS5003)
+  final double? tvoc; // ppb (ENS160), null si non reçu
+  final double? eco2; // ppm, CO2 estimé (ENS160), null si non reçu
   final DateTime timestamp;
 
   /// true = valeur fictive générée par le mode simulation.
@@ -94,24 +117,38 @@ class SensorInfo {
   static const pms5003 =
       SensorInfo('PMS5003', 'Particules fines PM2.5 et PM10', Icons.grain);
   static const dht22 =
-      SensorInfo('DHT22', 'Température et humidité', Icons.thermostat);
+      SensorInfo('AHT', 'Température et humidité', Icons.thermostat);
+  static const ens160 = SensorInfo('ENS160',
+      'CO₂ estimé (eCO2) et composés organiques volatils (TVOC)', Icons.air);
 }
 
 /// Résultat de l'évaluation d'une mesure.
 class AirQualityAssessment {
   const AirQualityAssessment._({
     required this.level,
+    required this.pmLevel,
     required this.pm25Level,
     required this.pm10Level,
+    required this.eco2Level,
+    required this.tvocLevel,
     required this.temperatureOk,
     required this.humidityOk,
     required this.recommendations,
     required this.exposureAdvice,
   });
 
+  /// Niveau global affiché à l'utilisateur.
   final AirQualityLevel level;
+
+  /// Niveau dû uniquement aux particules.
+  final AirQualityLevel pmLevel;
   final AirQualityLevel pm25Level;
   final AirQualityLevel pm10Level;
+
+  /// Niveaux liés aux gaz (null si la mesure n'est pas disponible).
+  final AirQualityLevel? eco2Level;
+  final AirQualityLevel? tvocLevel;
+
   final bool temperatureOk;
   final bool humidityOk;
   final List<String> recommendations;
@@ -120,12 +157,36 @@ class AirQualityAssessment {
   /// d'établir une durée d'exposition médicalement sûre).
   final String exposureAdvice;
 
+  /// true si les gaz (eCO2 / TVOC) ont relevé le niveau global.
+  bool get gasRaisedLevel => level.index > pmLevel.index;
+
   static AirQualityLevel _levelFor(double v, double g, double i4, double i2) {
     if (v <= g) return AirQualityLevel.good;
     if (v <= i4) return AirQualityLevel.moderate;
     if (v <= i2) return AirQualityLevel.poor;
     return AirQualityLevel.veryPoor;
   }
+
+  static AirQualityLevel _levelForEco2(double v) {
+    if (v <= AirQualityReferences.eco2Good) return AirQualityLevel.good;
+    if (v <= AirQualityReferences.eco2Moderate) return AirQualityLevel.moderate;
+    return AirQualityLevel.poor;
+  }
+
+  static AirQualityLevel _levelForTvoc(double v) {
+    if (v <= AirQualityReferences.tvocGood) return AirQualityLevel.good;
+    if (v <= AirQualityReferences.tvocModerate) return AirQualityLevel.moderate;
+    if (v <= AirQualityReferences.tvocPoor) return AirQualityLevel.poor;
+    return AirQualityLevel.veryPoor;
+  }
+
+  static AirQualityLevel _worst(AirQualityLevel a, AirQualityLevel b) =>
+      a.index >= b.index ? a : b;
+
+  /// Les gaz sont des estimations : ils ne peuvent pas, à eux seuls,
+  /// donner le niveau « très mauvais ».
+  static AirQualityLevel _capAtPoor(AirQualityLevel l) =>
+      l.index > AirQualityLevel.poor.index ? AirQualityLevel.poor : l;
 
   static String _adviceFor(AirQualityLevel level) {
     switch (level) {
@@ -143,12 +204,38 @@ class AirQualityAssessment {
     }
   }
 
-  static AirQualityAssessment evaluate(SensorReading r) {
-    final l25 = _levelFor(r.pm25, AirQualityReferences.pm25Guideline,
-        AirQualityReferences.pm25Interim4, AirQualityReferences.pm25Interim2);
-    final l10 = _levelFor(r.pm10, AirQualityReferences.pm10Guideline,
-        AirQualityReferences.pm10Interim4, AirQualityReferences.pm10Interim2);
-    final level = l25.index >= l10.index ? l25 : l10; // le pire des deux
+  /// [categories] : catégories de l'utilisateur (1 à 4). Si elles sont absentes,
+  /// seuls les particules, la température et l'humidité décident du niveau.
+  /// Catégories 3 et 4 : l'eCO2 peut relever le niveau.
+  /// Catégories 1 et 2 : le TVOC peut relever le niveau.
+  static AirQualityAssessment evaluate(SensorReading r,
+      {List<int>? categories}) {
+    final cats = categories ?? const <int>[];
+    final sensitive = cats.contains(1) || cats.contains(2);
+    final l25 = sensitive
+        ? _levelFor(r.pm25, AirQualityReferences.pm25Annual,
+            AirQualityReferences.pm25Guideline, AirQualityReferences.pm25Interim4)
+        : _levelFor(r.pm25, AirQualityReferences.pm25Guideline,
+            AirQualityReferences.pm25Interim4, AirQualityReferences.pm25Interim2);
+    final l10 = sensitive
+        ? _levelFor(r.pm10, AirQualityReferences.pm10Annual,
+            AirQualityReferences.pm10Guideline, AirQualityReferences.pm10Interim4)
+        : _levelFor(r.pm10, AirQualityReferences.pm10Guideline,
+            AirQualityReferences.pm10Interim4, AirQualityReferences.pm10Interim2);
+    final pmLevel = _worst(l25, l10); // le pire des deux
+
+    final eco2Level = r.eco2 == null ? null : _levelForEco2(r.eco2!);
+    final tvocLevel = r.tvoc == null ? null : _levelForTvoc(r.tvoc!);
+
+    
+    var level = pmLevel;
+    if (eco2Level != null && (cats.contains(3) || cats.contains(4))) {
+      level = _worst(level, _capAtPoor(eco2Level));
+    }
+    if (tvocLevel != null && (cats.contains(1) || cats.contains(2))) {
+      level = _worst(level, _capAtPoor(tvocLevel));
+    }
+
     final tOk = r.temperature >= AirQualityReferences.tempMin &&
         r.temperature <= AirQualityReferences.tempMax;
     final hOk = r.humidity >= AirQualityReferences.humMin &&
@@ -176,6 +263,14 @@ class AirQualityAssessment {
         reco.add('En cas de gêne respiratoire, demandez un avis médical.');
         break;
     }
+    if (eco2Level != null && eco2Level.index >= AirQualityLevel.moderate.index) {
+      reco.add('Le CO₂ estimé est élevé : la pièce manque d’air frais. '
+          'Ouvrez une fenêtre quelques minutes.');
+    }
+    if (tvocLevel != null && tvocLevel.index >= AirQualityLevel.moderate.index) {
+      reco.add('Les composés organiques volatils sont élevés : aérez et évitez '
+          'produits ménagers, parfums d’ambiance et aérosols.');
+    }
     if (r.temperature < AirQualityReferences.tempMin) {
       reco.add('Température basse : chauffez légèrement la pièce.');
     } else if (r.temperature > AirQualityReferences.tempMax) {
@@ -189,8 +284,11 @@ class AirQualityAssessment {
 
     return AirQualityAssessment._(
       level: level,
+      pmLevel: pmLevel,
       pm25Level: l25,
       pm10Level: l10,
+      eco2Level: eco2Level,
+      tvocLevel: tvocLevel,
       temperatureOk: tOk,
       humidityOk: hOk,
       recommendations: reco,

@@ -11,8 +11,9 @@ import '../widgets/simulation_banner.dart';
 
 /// Résultats : mesures, état de l'air, recommandations et conseil d'exposition.
 class ResultScreen extends StatelessWidget {
-  const ResultScreen({super.key, required this.reading});
+  const ResultScreen({super.key, required this.reading, this.categories});
   final SensorReading reading;
+  final List<int>? categories;
 
   String _summary(AirQualityLevel l) {
     switch (l) {
@@ -30,8 +31,10 @@ class ResultScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final p = AppPalette.of(context);
-    final a = AirQualityAssessment.evaluate(reading);
+    final a = AirQualityAssessment.evaluate(reading, categories: categories);
     final level = a.level;
+    final sensitive = categories != null &&
+      (categories!.contains(1) || categories!.contains(2));
     final lc = AppColors.level(level);
     const ok = AppColors.good;
     const warn = AppColors.amber;
@@ -132,11 +135,15 @@ class ResultScreen extends StatelessWidget {
           color: AppColors.level(a.pm25Level),
           ratio: reading.pm25 / AirQualityReferences.pm25Interim2,
           numericValue: reading.pm25,
-          thresholds: const GaugeThresholds(
-            AirQualityReferences.pm25Guideline,
-            AirQualityReferences.pm25Interim4,
-            AirQualityReferences.pm25Interim2,
-          ),
+          thresholds: sensitive
+              ? const GaugeThresholds(
+                  AirQualityReferences.pm25Annual,
+                  AirQualityReferences.pm25Guideline,
+                  AirQualityReferences.pm25Interim4)
+              : const GaugeThresholds(
+                  AirQualityReferences.pm25Guideline,
+                  AirQualityReferences.pm25Interim4,
+                  AirQualityReferences.pm25Interim2),
           statusText: a.pm25Level.label,
         ),
         MeasureCard(
@@ -147,14 +154,52 @@ class ResultScreen extends StatelessWidget {
           color: AppColors.level(a.pm10Level),
           ratio: reading.pm10 / AirQualityReferences.pm10Interim2,
           numericValue: reading.pm10,
-          thresholds: const GaugeThresholds(
-            AirQualityReferences.pm10Guideline,
-            AirQualityReferences.pm10Interim4,
-            AirQualityReferences.pm10Interim2,
-          ),
+          thresholds: sensitive
+              ? const GaugeThresholds(
+                  AirQualityReferences.pm10Annual,
+                  AirQualityReferences.pm10Guideline,
+                  AirQualityReferences.pm10Interim4)
+              : const GaugeThresholds(
+                  AirQualityReferences.pm10Guideline,
+                  AirQualityReferences.pm10Interim4,
+                  AirQualityReferences.pm10Interim2),
           statusText: a.pm10Level.label,
         ),
       ),
+      
+      if (reading.eco2 != null || reading.tvoc != null)
+        pair(
+          MeasureCard(
+            label: 'CO₂ estimé (eCO2)',
+            value: reading.eco2 == null ? '—' : fmt(reading.eco2!),
+            unit: 'ppm',
+            icon: Icons.air,
+            color: a.eco2Level == null
+                ? Colors.grey
+                : AppColors.level(a.eco2Level!),
+            ratio: reading.eco2 == null
+                ? null
+                : reading.eco2! / AirQualityReferences.eco2Moderate,
+            statusText: a.eco2Level?.label ?? 'Non mesuré',
+          ),
+          MeasureCard(
+            label: 'TVOC',
+            value: reading.tvoc == null ? '—' : fmt(reading.tvoc!),
+            unit: 'ppb',
+            icon: Icons.cloud_outlined,
+            color: a.tvocLevel == null
+                ? Colors.grey
+                : AppColors.level(a.tvocLevel!),
+            ratio: reading.tvoc == null
+                ? null
+                : reading.tvoc! / AirQualityReferences.tvocPoor,
+            statusText: a.tvocLevel?.label ?? 'Non mesuré',
+          ),
+        ),
+      if (reading.eco2 != null || reading.tvoc != null)
+        Text(AirQualityReferences.gasDisclaimer,
+            style: TextStyle(fontSize: 11.5, color: p.muted, height: 1.35)),
+
       Text(
         'Barres PM : zones Bon, Modéré, Mauvais et Très mauvais selon les repères '
         'OMS 2021 (moyennes sur 24 h). Seuils en µg/m³ : '
@@ -164,6 +209,13 @@ class ResultScreen extends StatelessWidget {
         '${fmt(AirQualityReferences.pm10Interim2)} pour les PM10.',
         style: TextStyle(fontSize: 11.5, color: p.muted, height: 1.35),
       ),
+      if (sensitive)
+        Text(
+          'Votre profil étant plus sensible, les zones des barres PM sont plus '
+          'strictes : « Bon » correspond aux valeurs annuelles recommandées par '
+          'l’OMS (5 µg/m³ pour les PM2.5, 15 µg/m³ pour les PM10).',
+          style: TextStyle(fontSize: 11.5, color: p.muted, height: 1.35),
+        ),
       // Recommandations
       GlassCard(
         padding: const EdgeInsets.all(16),

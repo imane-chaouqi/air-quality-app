@@ -154,7 +154,7 @@ class ProfileAnalysisScreen extends StatelessWidget {
   List<String> _aides(List<int> categories) {
     final aides = <String>[
       "Elle mesure les particules fines (PM1.0, PM2.5, PM10), la température "
-          "et l'humidité de la pièce.",
+         "et l'humidité de la pièce, et estime le CO₂ et les composés organiques volatils (TVOC).",
     ];
     for (final categorie in categories) {
       if (categorie == 1) {
@@ -288,7 +288,7 @@ class ProfileAnalysisScreen extends StatelessWidget {
                                 );
                               }),
                               const Text(
-                                'Elle ne détecte pas les gaz (CO, CO₂, COV) ni les pollens.',
+                                'Le CO₂ est estimé et non mesuré directement. Elle ne détecte ni le monoxyde de carbone (CO) ni les pollens.',
                                 style: TextStyle(
                                   fontSize: 13,
                                   color: AppColors.texteSecondaire,
@@ -364,7 +364,7 @@ class ProfileAnalysisScreen extends StatelessWidget {
                     onPressed: () {
                       Navigator.push(
                         context,
-                        MaterialPageRoute(builder: (_) => const AnalysisScreen()),
+                        MaterialPageRoute(builder: (_) => AnalysisScreen(categories: categories)),
                       );
                     },
                   ),
