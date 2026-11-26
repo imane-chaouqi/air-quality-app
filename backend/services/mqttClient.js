@@ -50,6 +50,15 @@ function initMqtt() {
       const humidity = toNumber(payload.humidity ?? payload.hum);
       const pm25 = toNumber(payload.pm25 ?? payload['pm2.5'] ?? payload.pm2_5);
       const pm10 = toNumber(payload.pm10);
+      
+      // Capteur ENS160 (optionnel) : tvoc en ppb, eco2 en ppm
+      const toOptionalNumber = (value) => {
+       if (value === undefined || value === null || value === '') return null;
+       const n = typeof value === 'number' ? value : Number(value);
+       return Number.isNaN(n) ? null : n;
+      };
+      const tvoc = toOptionalNumber(payload.tvoc);
+      const eco2 = toOptionalNumber(payload.eco2);
 
       // Vérification de validité des mesures PMS5003 et DHT22
       if (
@@ -73,6 +82,8 @@ function initMqtt() {
         humidity: Number(humidity.toFixed(1)),
         pm25: Number(pm25.toFixed(1)),
         pm10: Number(pm10.toFixed(1)),
+        tvoc: tvoc === null ? null : Math.round(tvoc),
+        eco2: eco2 === null ? null : Math.round(eco2),
         isSimulated: false,
         timestamp: new Date().toISOString(),
         testMode: true,
