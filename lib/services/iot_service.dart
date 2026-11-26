@@ -204,6 +204,7 @@ class Esp32IotService extends BaseIotService {
   @override
   void dispose() {
     _sub?.cancel();
+    transport?.close();
     super.dispose();
   }
 }

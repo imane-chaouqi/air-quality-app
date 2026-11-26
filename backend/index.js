@@ -15,29 +15,17 @@ app.use(express.json());
 // Routes API
 app.use('/api/measures', measuresRoutes);
 
-// MongoDB des mesures/MQTT (connexion Mongoose principale)
-const measuresUri = process.env.MONGODB_URI;
-
 // MongoDB dédiée aux profils/authentification
-const authUri = process.env.MONGO_URI_AUTH || process.env.MONGO_URI;
-
-if (!measuresUri) {
-  console.error('[MongoDB] MONGODB_URI est requis pour les mesures.');
-  process.exit(1);
-}
+const authUri = process.env.MONGO_URI_AUTH;
 
 if (!authUri) {
-  console.error('[MongoDB] MONGO_URI_AUTH (ou MONGO_URI) est requis pour les profils/authentification.');
+  console.error('[MongoDB] MONGO_URI_AUTH est requis pour les profils/authentification.');
   process.exit(1);
 }
 
-Promise.all([
-  mongoose.connect(measuresUri, { family: 4 }),
-  mongoose.createConnection(authUri, { family: 4 }).asPromise(),
-])
-  .then(([, authConnection]) => {
+mongoose.createConnection(authUri, { family: 4 }).asPromise()
+  .then((authConnection) => {
     profileStore.configure(authConnection);
-    console.log('[MongoDB] Mesures connectées à Atlas');
     console.log('[MongoDB] Profils/authentification connectés à Atlas');
 
     try {

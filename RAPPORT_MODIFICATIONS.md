@@ -2,7 +2,7 @@
 
 ## Analyse initiale
 Projet `airsense` : lib/ = parties de la développeuse 3 (modèle, service IoT, écrans, widgets) ;
-`user_model`, `form_screen`, `history_screen`, `profile_screen`, `register_screen` sont vides (non touchés).
+`user_model`, `form_screen`, `profile_screen`, `register_screen` sont vides (non touchés).
 Dépendances : http, fl_chart, shared_preferences, cupertino_icons. Le test existant importait `air_quality_app`
 au lieu de `airsense` (corrigé).
 

@@ -1,4 +1,5 @@
 import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../models/sensor_model.dart';
@@ -52,7 +53,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final effectiveTransport = widget.simulation
         ? null
         : (widget.transport ??
-            HttpEsp32Transport(baseUrl: 'http://localhost:3000/api/measures'));
+              HttpEsp32Transport(
+                baseUrl: 'http://localhost:3000/api/measures',
+              ));
 
     final service = createIotService(
       simulation: widget.simulation,
@@ -82,7 +85,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       await service.requestActivation();
       if (!mounted || gen != _generation) return;
       setState(() {
-        _isWaitingForData = true;
+        _isWaitingForData = _latest == null;
       });
     } catch (e) {
       if (mounted && gen == _generation) {
@@ -99,7 +102,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     if (!mounted) return;
     final lost =
         (s == ConnectionStatus.error || s == ConnectionStatus.disconnected) &&
-            (_isWaitingForData || _latest != null);
+        (_isWaitingForData || _latest != null);
     setState(() {
       _status = s;
       _error = _service.errorMessage;
@@ -142,16 +145,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
     String actionMessage,
     String simpleExplanation,
     Color color,
-    IconData icon
-  }) _getPersonalizedVerdict(AirQualityAssessment assessment) {
+    IconData icon,
+  })
+  _getPersonalizedVerdict(AirQualityAssessment assessment) {
     final sensitive = widget.isSensitiveProfile;
     switch (assessment.level) {
       case AirQualityLevel.good:
         return (
           title: 'L’air est sain pour vous',
-          actionMessage: 'Vous pouvez rester dans cette pièce en toute sécurité.',
-          simpleExplanation:
-              'Le taux de particules fines est faible et l’air est parfaitement respirable.',
+          actionMessage:
+              'Vous pouvez rester dans cette pièce en toute sécurité.',
+          simpleExplanation: 'Le taux de particules fines est faible et l’air est parfaitement respirable.',
           color: Colors.green,
           icon: Icons.check_circle_outline_rounded,
         );
@@ -163,8 +167,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           actionMessage: sensitive
               ? 'Évitez de rester trop longtemps dans cette pièce et pensez à aérer.'
               : 'Vous pouvez rester, mais ouvrez une fenêtre pour renouveler l’air.',
-          simpleExplanation:
-              'Une légère présence de poussières fines a été détectée dans l’air.',
+          simpleExplanation: 'Une légère présence de poussières fines a été détectée dans l’air.',
           color: Colors.amber.shade700,
           icon: Icons.info_outline_rounded,
         );
@@ -174,8 +177,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           actionMessage: sensitive
               ? 'Sortez de cette pièce dès maintenant et ventilez l’espace.'
               : 'Limitez votre présence ici et aérez immédiatement la pièce.',
-          simpleExplanation:
-              'L’air est chargé en particules fines (fumée, cuisson ou poussière).',
+          simpleExplanation: 'L’air est chargé en particules fines (fumée, cuisson ou poussière).',
           color: Colors.deepOrange,
           icon: Icons.warning_amber_rounded,
         );
@@ -184,8 +186,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           title: 'Alerte : air très pollué et nocif',
           actionMessage:
               'Sortez immédiatement de cette pièce et ne restez pas exposé.',
-          simpleExplanation:
-              'Niveau élevé de particules fines pouvant provoquer une gêne respiratoire.',
+          simpleExplanation: 'Niveau élevé de particules fines pouvant provoquer une gêne respiratoire.',
           color: Colors.red,
           icon: Icons.dangerous_outlined,
         );
@@ -225,6 +226,42 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
                     // ÉTAT 4 : DONNÉES REÇUES + MESSAGE PERSONNALISÉ VULGARISÉ
                     if (!failed && r != null && assessment != null) ...[
+                      // TEMP TEST MAQUETTE : affichage indique l'origine live MQTT.
+                      Container(
+                        width: double.infinity,
+                        margin: const EdgeInsets.only(bottom: 16),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 10,
+                        ),
+                        decoration: BoxDecoration(
+                          color: AppColors.softTealBg,
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(
+                            color: AppColors.primaryTeal.withOpacity(0.3),
+                          ),
+                        ),
+                        child: const Row(
+                          children: [
+                            Icon(
+                              Icons.sensors,
+                              size: 18,
+                              color: AppColors.primaryTeal,
+                            ),
+                            SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                'MODE TEST MAQUETTE - dernière mesure MQTT reçue',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w700,
+                                  color: AppColors.primaryDark,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                       _buildPersonalizedVerdictCard(assessment),
                       const SizedBox(height: 16),
                       Row(
@@ -281,8 +318,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               ),
                             );
                           },
-                          icon: const Icon(Icons.analytics_outlined,
-                              color: Colors.white),
+                          icon: const Icon(
+                            Icons.analytics_outlined,
+                            color: Colors.white,
+                          ),
                           label: const Text(
                             'Voir le diagnostic complet',
                             style: TextStyle(
@@ -440,7 +479,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             color: Colors.black.withOpacity(0.03),
             blurRadius: 10,
             offset: const Offset(0, 4),
-          )
+          ),
         ],
       ),
       child: Column(
@@ -491,8 +530,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ElevatedButton.icon(
             onPressed: _retry,
             icon: const Icon(Icons.refresh, size: 18, color: Colors.white),
-            label: const Text('Réessayer',
-                style: TextStyle(color: Colors.white)),
+            label: const Text(
+              'Réessayer',
+              style: TextStyle(color: Colors.white),
+            ),
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.red,
               shape: RoundedRectangleBorder(
@@ -506,7 +547,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Widget _buildPollutantCard(
-      String title, String value, String unit, String status, Color color) {
+    String title,
+    String value,
+    String unit,
+    String status,
+    Color color,
+  ) {
     return Expanded(
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
@@ -518,7 +564,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               color: Colors.black.withOpacity(0.03),
               blurRadius: 10,
               offset: const Offset(0, 4),
-            )
+            ),
           ],
         ),
         child: Column(
@@ -585,7 +631,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             color: Colors.black.withOpacity(0.03),
             blurRadius: 10,
             offset: const Offset(0, 4),
-          )
+          ),
         ],
       ),
       child: Row(
@@ -629,7 +675,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             color: Colors.black.withOpacity(0.03),
             blurRadius: 10,
             offset: const Offset(0, 4),
-          )
+          ),
         ],
       ),
       child: Column(
@@ -649,8 +695,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(Icons.check_circle,
-                    color: assessment.level.color, size: 18),
+                Icon(
+                  Icons.check_circle,
+                  color: assessment.level.color,
+                  size: 18,
+                ),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
