@@ -36,7 +36,7 @@ dependencies:
   cupertino_icons: ^1.0.8
   http: ^1.2.0                  # Pour communiquer avec l'ESP32
   fl_chart: ^0.68.0             # Pour créer les histogrammes
-  shared_preferences: ^2.2.2    # Pour stocker les préférences utilisateur
+  shared_preferences: ^2.5.6    # Pour stocker les préférences utilisateur
   
 dev_dependencies:
   flutter_test:

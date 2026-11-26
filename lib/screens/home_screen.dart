@@ -1,5 +1,7 @@
 import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
+
 import '../theme/app_colors.dart';
 import 'register_screen.dart';
 import 'login_screen.dart';
@@ -59,9 +61,7 @@ class _HomeScreenState extends State<HomeScreen>
             right: 0,
             bottom: 0,
             height: 120,
-            child: IgnorePointer(
-              child: CustomPaint(painter: _WavePainter()),
-            ),
+            child: IgnorePointer(child: CustomPaint(painter: _WavePainter())),
           ),
           SafeArea(
             child: SingleChildScrollView(
@@ -86,10 +86,10 @@ class _HomeScreenState extends State<HomeScreen>
   }
 
   Widget _halo(double size, Color color) => Container(
-        width: size,
-        height: size,
-        decoration: BoxDecoration(shape: BoxShape.circle, color: color),
-      );
+    width: size,
+    height: size,
+    decoration: BoxDecoration(shape: BoxShape.circle, color: color),
+  );
 
   Widget _buildHeader() {
     return Row(
@@ -114,13 +114,16 @@ class _HomeScreenState extends State<HomeScreen>
           child: const Icon(Icons.air, color: Colors.white, size: 22),
         ),
         const SizedBox(width: 12),
-        const Text(
-          'AirSense',
-          style: TextStyle(
-            fontSize: 24,
-            fontWeight: FontWeight.w800,
-            color: AppColors.primaryDark,
-            letterSpacing: 0.3,
+        Expanded(
+          child: Text(
+            'AirSense',
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              fontSize: 24,
+              fontWeight: FontWeight.w800,
+              color: AppColors.primaryDark,
+              letterSpacing: 0.3,
+            ),
           ),
         ),
         const Spacer(),
@@ -137,8 +140,11 @@ class _HomeScreenState extends State<HomeScreen>
               ),
             ],
           ),
-          child: const Icon(Icons.nightlight_round,
-              size: 18, color: AppColors.primaryDark),
+          child: const Icon(
+            Icons.nightlight_round,
+            size: 18,
+            color: AppColors.primaryDark,
+          ),
         ),
       ],
     );
@@ -187,8 +193,11 @@ class _HomeScreenState extends State<HomeScreen>
                         ),
                       ],
                     ),
-                    child: const Icon(Icons.waves_rounded,
-                        size: 38, color: Colors.white),
+                    child: const Icon(
+                      Icons.waves_rounded,
+                      size: 38,
+                      color: Colors.white,
+                    ),
                   ),
                 ),
               ),
@@ -238,7 +247,9 @@ class _HomeScreenState extends State<HomeScreen>
           color: AppColors.subCardBackground,
           borderRadius: BorderRadius.circular(18),
           border: Border.all(
-              color: AppColors.primaryTeal.withOpacity(0.12), width: 1),
+            color: AppColors.primaryTeal.withOpacity(0.12),
+            width: 1,
+          ),
         ),
         child: Column(
           children: [
@@ -253,6 +264,8 @@ class _HomeScreenState extends State<HomeScreen>
             const SizedBox(height: 8),
             Text(
               label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
               textAlign: TextAlign.center,
               style: const TextStyle(
                 fontSize: 10.5,
@@ -304,21 +317,31 @@ class _HomeScreenState extends State<HomeScreen>
           backgroundColor: Colors.transparent,
           shadowColor: Colors.transparent,
           padding: const EdgeInsets.symmetric(vertical: 17),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(30),
+          ),
         ),
-        child: const Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.person_add_alt_1_rounded, color: Colors.white, size: 20),
-            SizedBox(width: 10),
-            Text(
-              'S’inscrire',
-              style: TextStyle(
+        child: const FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                Icons.person_add_alt_1_rounded,
+                color: Colors.white,
+                size: 20,
+              ),
+              SizedBox(width: 10),
+              Text(
+                'S’inscrire',
+                style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w700,
-                  color: Colors.white),
-            ),
-          ],
+                  color: Colors.white,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -333,23 +356,29 @@ class _HomeScreenState extends State<HomeScreen>
       style: OutlinedButton.styleFrom(
         backgroundColor: Colors.white.withOpacity(0.85),
         side: BorderSide(
-            color: AppColors.primaryTeal.withOpacity(0.45), width: 1.5),
+          color: AppColors.primaryTeal.withOpacity(0.45),
+          width: 1.5,
+        ),
         padding: const EdgeInsets.symmetric(vertical: 16),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
       ),
-      child: const Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(Icons.login_rounded, color: AppColors.primaryDark, size: 20),
-          SizedBox(width: 10),
-          Text(
-            'Connexion',
-            style: TextStyle(
+      child: const FittedBox(
+        fit: BoxFit.scaleDown,
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.login_rounded, color: AppColors.primaryDark, size: 20),
+            SizedBox(width: 10),
+            Text(
+              'Connexion',
+              style: TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.w700,
-                color: AppColors.primaryDark),
-          ),
-        ],
+                color: AppColors.primaryDark,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -370,18 +399,20 @@ class _OrbitPainter extends CustomPainter {
       ..color = AppColors.primaryTeal.withOpacity(0.25);
     canvas.drawCircle(c, r, ring);
     canvas.drawCircle(
-        c, r - 12, ring..color = AppColors.primaryTeal.withOpacity(0.12));
+      c,
+      r - 12,
+      ring..color = AppColors.primaryTeal.withOpacity(0.12),
+    );
 
     final dot = Paint()..color = AppColors.primaryTeal;
     for (int i = 0; i < 8; i++) {
       final a = 2 * math.pi * (i / 8) + t * 2 * math.pi;
       final p = Offset(c.dx + r * math.cos(a), c.dy + r * math.sin(a));
       canvas.drawCircle(
-          p,
-          i.isEven ? 3.6 : 2.4,
-          dot
-            ..color =
-                AppColors.primaryTeal.withOpacity(i.isEven ? 0.95 : 0.5));
+        p,
+        i.isEven ? 3.6 : 2.4,
+        dot..color = AppColors.primaryTeal.withOpacity(i.isEven ? 0.95 : 0.5),
+      );
     }
   }
 
@@ -397,19 +428,27 @@ class _WavePainter extends CustomPainter {
       p.lineTo(0, base);
       for (double x = 0; x <= size.width; x += 4) {
         p.lineTo(
-            x, base + amp * math.sin((x / size.width) * 2 * math.pi + phase));
+          x,
+          base + amp * math.sin((x / size.width) * 2 * math.pi + phase),
+        );
       }
       p.lineTo(size.width, size.height);
       p.close();
       return p;
     }
 
-    canvas.drawPath(wave(size.height * 0.45, 12, 0),
-        Paint()..color = AppColors.primaryTeal.withOpacity(0.18));
-    canvas.drawPath(wave(size.height * 0.62, 10, 1.6),
-        Paint()..color = AppColors.primaryTeal.withOpacity(0.28));
-    canvas.drawPath(wave(size.height * 0.80, 8, 3.2),
-        Paint()..color = AppColors.primaryDark.withOpacity(0.35));
+    canvas.drawPath(
+      wave(size.height * 0.45, 12, 0),
+      Paint()..color = AppColors.primaryTeal.withOpacity(0.18),
+    );
+    canvas.drawPath(
+      wave(size.height * 0.62, 10, 1.6),
+      Paint()..color = AppColors.primaryTeal.withOpacity(0.28),
+    );
+    canvas.drawPath(
+      wave(size.height * 0.80, 8, 3.2),
+      Paint()..color = AppColors.primaryDark.withOpacity(0.35),
+    );
   }
 
   @override
